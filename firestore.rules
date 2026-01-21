@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    function isValidSize(data, maxSize) {
+      return request.resource.size() <= maxSize;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isAuthenticated() 
+                    && isOwner(userId)
+                    && isValidEmail(request.resource.data.email)
+                    && request.resource.data.name.size() >= 2
+                    && request.resource.data.name.size() <= 100
+                    && isValidSize(request.resource.data, 5 * 1024); // 5KB
+      allow update: if isOwner(userId)
+                    && isValidEmail(request.resource.data.email)
+                    && request.resource.data.name.size() >= 2
+                    && request.resource.data.name.size() <= 100
+                    && request.resource.data.userId == resource.data.userId // Immutable
+                    && isValidSize(request.resource.data, 5 * 1024);
+      allow delete: if isOwner(userId);
+    }
+    
+    // Resumes collection
+    match /resumes/{resumeId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated()
+                    && isOwner(request.resource.data.userId)
+                    && request.resource.data.title.size() >= 1
+                    && request.resource.data.title.size() <= 200
+                    && request.resource.data.experience.size() <= 50
+                    && request.resource.data.education.size() <= 20
+                    && request.resource.data.skills.size() <= 100
+                    && isValidSize(request.resource.data, 500 * 1024); // 500KB
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId // Immutable
+                    && request.resource.data.title.size() >= 1
+                    && request.resource.data.title.size() <= 200
+                    && request.resource.data.experience.size() <= 50
+                    && request.resource.data.education.size() <= 20
+                    && request.resource.data.skills.size() <= 100
+                    && isValidSize(request.resource.data, 500 * 1024);
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    // Templates collection
+    match /templates/{templateId} {
+      allow read: if resource.data.community == true || isOwner(resource.data.author);
+      allow create: if isAuthenticated()
+                    && isOwner(request.resource.data.author)
+                    && request.resource.data.name.size() >= 1
+                    && request.resource.data.name.size() <= 100
+                    && request.resource.data.tags.size() <= 10
+                    && isValidSize(request.resource.data, 50 * 1024); // 50KB
+      allow update: if isOwner(resource.data.author)
+                    && request.resource.data.author == resource.data.author // Immutable
+                    && request.resource.data.name.size() >= 1
+                    && request.resource.data.name.size() <= 100
+                    && request.resource.data.tags.size() <= 10
+                    && isValidSize(request.resource.data, 50 * 1024);
+      allow delete: if isOwner(resource.data.author);
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

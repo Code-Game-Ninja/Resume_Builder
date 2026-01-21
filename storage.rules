@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
+    }
+    
+    function isValidSize(maxSizeMB) {
+      return request.resource.size <= maxSizeMB * 1024 * 1024;
+    }
+    
+    // Avatar images
+    match /avatars/{userId}/{fileName} {
+      // Anyone can view avatars (for public profiles)
+      allow read: if true;
+      
+      // Only owner can upload/update their avatar
+      allow write: if isOwner(userId)
+                   && isValidImage()
+                   && isValidSize(5); // Max 5MB
+      
+      // Only owner can delete their avatar
+      allow delete: if isOwner(userId);
+    }
+    
+    // Resume images (profile photos in resumes)
+    match /resumes/{userId}/{resumeId}/{fileName} {
+      // Only owner can read their resume images
+      allow read: if isOwner(userId);
+      
+      // Only owner can upload/update resume images
+      allow write: if isOwner(userId)
+                   && isValidImage()
+                   && isValidSize(2); // Max 2MB
+      
+      // Only owner can delete resume images
+      allow delete: if isOwner(userId);
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
