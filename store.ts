@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Resume, User, Template, ATSAnalysis } from './types';
+import { Resume, User, Template, ATSAnalysis, SectionType } from './types';
 import { authService, resumeService, templateService, atsService, storageService } from './services/firebase';
 import { aiService } from './services/ai';
 
@@ -38,6 +38,7 @@ interface AppState {
   // State Updaters
   updateCurrentResumeData: (section: keyof Resume['data'], data: any) => void;
   updateCurrentResumeMetadata: (data: Partial<Resume['metadata']>) => void;
+  updateSectionOrder: (main: SectionType[], sidebar: SectionType[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   
@@ -224,12 +225,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   publishTemplate: async (resumeId) => {
-    const { user, currentResume } = get();
-    if (!user || !currentResume) return;
+    const { user, resumes } = get();
+    const resumeToPublish = resumes.find(r => r.id === resumeId);
+    
+    if (!user || !resumeToPublish) return;
     
     set({ isLoading: true });
     try {
-      await templateService.publishTemplate(currentResume, user.name);
+      await templateService.publishTemplate(resumeToPublish, user.name);
       const templates = await templateService.getTemplates();
       set({ templates });
     } finally {
@@ -275,6 +278,21 @@ export const useStore = create<AppState>((set, get) => ({
           updatedAt: new Date(),
         }
       };
+    }),
+
+  updateSectionOrder: (main: SectionType[], sidebar: SectionType[]) =>
+    set((state) => {
+        if (!state.currentResume) return {};
+        return {
+            currentResume: {
+                ...state.currentResume,
+                metadata: {
+                    ...state.currentResume.metadata,
+                    layout: { main, sidebar }
+                },
+                updatedAt: new Date()
+            }
+        };
     }),
 
   // --- AI Actions ---

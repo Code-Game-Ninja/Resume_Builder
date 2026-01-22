@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button } from '../components/UIComponents';
-import { Globe, Layout, Search, Sparkles, Filter, ChevronRight, Check } from 'lucide-react';
+import { Globe, Layout, Search, Sparkles, Filter, ChevronRight, Check, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { clsx, type ClassValue } from 'clsx';
@@ -57,6 +57,11 @@ const TemplateCard = ({ template, onUse, index }: { template: any, onUse: (id: s
                 <div className="flex justify-between items-start">
                     <div>
                         <h3 className="text-lg font-bold text-white group-hover:text-primary-400 transition-colors">{template.name}</h3>
+                        {template.isCommunity && template.author && (
+                             <p className="text-xs text-primary-400 mt-0.5 flex items-center gap-1.5 font-medium">
+                                 <User size={12} /> {template.author}
+                             </p>
+                        )}
                         <p className="text-sm text-gray-500 line-clamp-1 mt-1">{template.description}</p>
                     </div>
                 </div>

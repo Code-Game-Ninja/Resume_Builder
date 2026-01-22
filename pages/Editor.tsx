@@ -4,12 +4,13 @@ import { useStore } from '../store';
 import { resumeService, storageService } from '../services/firebase';
 import { Button, Input } from '../components/UIComponents';
 import { ATSModal } from '../components/ATSModal';
+import { Reorder, useDragControls } from 'framer-motion';
 import { 
   ArrowLeft, Save, Download, Share2, 
   User, Briefcase, GraduationCap, Wrench, FileText, ChevronDown, Plus, Trash2, GripVertical,
-  CheckCircle, Globe, MapPin, Phone, Mail, Link as LinkIcon, Sparkles, Loader2, Wand2, Camera
+  CheckCircle, Globe, MapPin, Phone, Mail, Link as LinkIcon, Sparkles, Loader2, Wand2, Camera, Layout, Award, Heart, FolderGit2
 } from 'lucide-react';
-import { SectionType, Resume, ExperienceItem, EducationItem } from '../types';
+import { SectionType, Resume, ExperienceItem, EducationItem, CertificateItem, ActivityItem, LanguageItem, ProjectItem } from '../types';
 import { cn } from '../components/UIComponents';
 
 declare const html2pdf: any;
@@ -178,6 +179,35 @@ const ListSectionEditor = <T extends { id: string }>({
 
 // --- PREVIEW RENDERERS ---
 
+const DraggableSection = ({ 
+    item, 
+    children, 
+    isDraggable = true 
+}: { 
+    item: string, 
+    children: React.ReactNode, 
+    isDraggable?: boolean,
+    key?: string
+}) => {
+    const controls = useDragControls();
+
+    if (!isDraggable) return <>{children}</>;
+
+    return (
+        <Reorder.Item value={item} dragListener={false} dragControls={controls} className="relative group/drag">
+            <div className="absolute -left-6 top-0 bottom-0 flex items-center justify-center opacity-0 group-hover/drag:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-50">
+                <div 
+                    className="p-1.5 rounded-md bg-gray-200/50 hover:bg-gray-300 text-gray-500 backdrop-blur-sm"
+                    onPointerDown={(e) => controls.start(e)}
+                >
+                    <GripVertical size={14} />
+                </div>
+            </div>
+            {children}
+        </Reorder.Item>
+    );
+};
+
 // A utility to render contact icons safely
 const ContactLine = ({ icon: Icon, value }: { icon: any, value: string }) => {
     if (!value) return null;
@@ -189,10 +219,39 @@ const ContactLine = ({ icon: Icon, value }: { icon: any, value: string }) => {
     );
 };
 
-const DocumentPreview = ({ data, template }: { data: Resume['data'], template: string }) => {
+const DocumentPreview = ({ 
+    data, 
+    template, 
+    layout, 
+    onReorder,
+    compactMode = false
+}: { 
+    data: Resume['data'], 
+    template: string,
+    layout?: { main: SectionType[], sidebar: SectionType[] },
+    onReorder: (main: SectionType[], sidebar: SectionType[]) => void,
+    compactMode?: boolean
+}) => {
     
+    // Default layouts if none provided
+    const defaultLayout = {
+        main: ['summary', 'experience', 'education', 'skills', 'certificates', 'activities', 'languages', 'projects'] as SectionType[],
+        sidebar: [] as SectionType[]
+    };
+
+    const twoColumnLeftDefault = {
+        main: ['summary', 'experience', 'projects', 'certificates'] as SectionType[],
+        sidebar: ['education', 'skills', 'languages', 'activities'] as SectionType[]
+    };
+
+    const twoColumnRightDefault = {
+        main: ['summary', 'experience', 'projects', 'certificates'] as SectionType[],
+        sidebar: ['skills', 'education', 'languages', 'activities'] as SectionType[]
+    };
+
     // --- Styles Definitions ---
     const styles = {
+        // ... (Same styles as before - keeping brief for tool call, assuming standard styles exist)
         // ONYX: Minimal, standard, highly readable
         onyx: {
             container: "font-sans bg-white text-gray-900",
@@ -301,6 +360,39 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
 
     const t: any = styles[template as keyof typeof styles] || styles.onyx;
 
+    // Determine current layout based on type and stored preference
+    let activeMain = layout?.main || [];
+    let activeSidebar = layout?.sidebar || [];
+
+    // Fallback if no layout stored
+    if (activeMain.length === 0 && activeSidebar.length === 0) {
+        if (t.layout === 'single') {
+            activeMain = defaultLayout.main;
+        } else if (t.layout === 'two-left') {
+            activeMain = twoColumnLeftDefault.main;
+            activeSidebar = twoColumnLeftDefault.sidebar;
+        } else if (t.layout === 'two-right') {
+            activeMain = twoColumnRightDefault.main;
+            activeSidebar = twoColumnRightDefault.sidebar;
+        }
+    }
+
+    // MIGRATION: Ensure new sections are present in old layouts
+    const requiredSections: SectionType[] = ['activities', 'languages', 'projects', 'certificates'];
+    const existingSections = new Set([...activeMain, ...activeSidebar]);
+    const missingSections = requiredSections.filter(s => !existingSections.has(s));
+    
+    if (missingSections.length > 0) {
+        // Add missing sections to appropriate column
+        if (t.layout === 'single' || activeSidebar.length === 0) {
+            // Single column: add to main
+            activeMain = [...activeMain, ...missingSections];
+        } else {
+            // Two-column: add to sidebar
+            activeSidebar = [...activeSidebar, ...missingSections];
+        }
+    }
+
     // --- Content Renderers ---
 
     const ContactDetails = ({ className }: { className?: string }) => (
@@ -330,7 +422,7 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
     );
 
     const EducationList = () => (
-        <div className="space-y-4">
+        <div className={compactMode ? "space-y-2" : "space-y-4"}>
             {data.education.filter(e => e.visible).map(edu => (
                 <div key={edu.id}>
                     <div className={cn("font-bold", template === 'gengar' ? "text-white" : "text-gray-900")}>
@@ -347,28 +439,151 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
         </div>
     );
 
-    const ExperienceList = () => (
-        <div className="space-y-6">
-            {data.experience.filter(e => e.visible).map(exp => (
-                <div key={exp.id}>
-                    <div className="flex justify-between items-baseline mb-1">
-                        <h4 className="font-bold text-md">{exp.position}</h4>
-                        <span className="text-sm opacity-70 whitespace-nowrap">{exp.startDate} - {exp.endDate}</span>
+    const ExperienceList = () => {
+        return (
+            <div className={compactMode ? "space-y-4" : "space-y-6"}>
+                {data.experience.filter(e => e.visible).map(exp => (
+                    <div key={exp.id}>
+                        <div className="flex justify-between items-baseline mb-1">
+                            <h4 className="font-bold text-md">{exp.position}</h4>
+                            <span className="text-sm opacity-70 whitespace-nowrap">{exp.startDate} - {exp.endDate}</span>
+                        </div>
+                        <div className={cn("text-sm font-semibold opacity-80 flex items-center gap-2", compactMode ? "mb-1" : "mb-2")}>
+                            {exp.company} 
+                            {exp.location && <span className="text-xs font-normal opacity-60">• {exp.location}</span>}
+                        </div>
+                        <p className={cn("text-sm opacity-90 leading-relaxed whitespace-pre-wrap", compactMode && "leading-normal")}>{exp.description}</p>
                     </div>
-                    <div className="text-sm font-semibold opacity-80 mb-2 flex items-center gap-2">
-                        {exp.company} 
-                        {exp.location && <span className="text-xs font-normal opacity-60">• {exp.location}</span>}
+                ))}
+            </div>
+        );
+    };
+
+    const renderSection = (type: SectionType, region: 'main' | 'sidebar' = 'main') => {
+        const titleStyle = region === 'sidebar' && t.sectionTitleSidebar ? t.sectionTitleSidebar : (region === 'main' && t.sectionTitleMain ? t.sectionTitleMain : t.sectionTitle);
+        
+        const mbSection = compactMode ? "mb-3" : "mb-6";
+        const mbSectionSidebar = compactMode ? "mb-4" : "mb-8";
+
+        switch(type) {
+            case 'summary':
+                if (!data.basics.summary) return null;
+                const summaryTitle = region === 'sidebar' ? 'Profile' : (template === 'azurill' || template === 'chikorita' ? 'Professional Summary' : 'Profile');
+                return (
+                    <div className={`${mbSection} group/section relative`}>
+                        <h3 className={titleStyle}>{summaryTitle}</h3>
+                        <p className={cn("text-sm leading-relaxed opacity-90", compactMode && "text-xs leading-normal")}>{data.basics.summary}</p>
                     </div>
-                    <p className="text-sm opacity-90 leading-relaxed whitespace-pre-wrap">{exp.description}</p>
-                </div>
-            ))}
-        </div>
-    );
+                );
+            case 'experience':
+                if (data.experience.length === 0) return null;
+                 const expTitle = region === 'sidebar' ? 'Experience' : (template === 'chikorita' ? 'Work Experience' : 'Experience');
+                return (
+                    <div className={`${mbSection} group/section relative`}>
+                        <h3 className={titleStyle}>{expTitle}</h3>
+                        <ExperienceList />
+                    </div>
+                );
+            case 'education':
+                if (data.education.length === 0) return null;
+                return (
+                    <div className={region === 'sidebar' ? `${mbSectionSidebar} group/section relative` : `${mbSection} group/section relative`}>
+                        <h3 className={titleStyle}>Education</h3>
+                        <EducationList />
+                    </div>
+                );
+            case 'skills':
+                if (data.skills.length === 0) return null;
+                return (
+                    <div className={region === 'sidebar' ? `${mbSectionSidebar} group/section relative` : `bg-transparent ${mbSection} group/section relative`}>
+                        <h3 className={titleStyle}>Skills</h3>
+                        <SkillsList vertical={region === 'sidebar'} />
+                    </div>
+                );
+            case 'certificates':
+                if (!data.certificates || data.certificates.length === 0) return null;
+                return (
+                    <div className={region === 'sidebar' ? `${mbSectionSidebar} group/section relative` : `${mbSection} group/section relative`}>
+                        <h3 className={titleStyle}>Certifications</h3>
+                        <div className={cn("space-y-3", compactMode && "space-y-1.5")}>
+                            {data.certificates.filter(c => c.visible).map(cert => (
+                                <div key={cert.id} className="text-sm">
+                                    <div className="font-bold text-inherit">{cert.name}</div>
+                                    <div className="opacity-80">{cert.issuer} • {cert.date}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+                return (
+                    <div className={region === 'sidebar' ? "mb-8 group/section relative" : "mb-6 group/section relative"}>
+                        <h3 className={titleStyle}>Interests</h3>
+                        <div className="space-y-3">
+                            {data.activities.filter(a => a.visible).map(act => (
+                                <div key={act.id} className="text-sm">
+                                    <div className="font-bold text-inherit">{act.name}</div>
+                                    <p className="opacity-80 leading-relaxed text-xs mt-0.5">{act.description}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'languages':
+                if (!data.languages || data.languages.length === 0) return null;
+                return (
+                    <div className={region === 'sidebar' ? "mb-8 group/section relative" : "mb-6 group/section relative"}>
+                        <h3 className={titleStyle}>Languages</h3>
+                        <div className="space-y-2">
+                            {data.languages.filter(l => l.visible).map(lang => (
+                                <div key={lang.id} className="flex justify-between items-center text-sm">
+                                    <span className="font-bold">{lang.name}</span>
+                                    <span className="opacity-75 text-xs">{lang.fluency}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'projects':
+                if (!data.projects || data.projects.length === 0) return null;
+                return (
+                    <div className={region === 'sidebar' ? "mb-8 group/section relative" : "mb-6 group/section relative"}>
+                        <h3 className={titleStyle}>Projects</h3>
+                        <div className="space-y-4">
+                            {data.projects.filter(p => p.visible).map(proj => (
+                                <div key={proj.id}>
+                                    <div className="flex justify-between items-baseline mb-1">
+                                        <h4 className="font-bold text-sm">{proj.name}</h4>
+                                        {proj.link && (
+                                            <a href={proj.link} target="_blank" rel="noreferrer" className="text-xs opacity-70 hover:opacity-100 hover:underline flex items-center gap-1">
+                                                <LinkIcon size={10} /> Link
+                                            </a>
+                                        )}
+                                    </div>
+                                    <p className="text-sm opacity-90 leading-relaxed whitespace-pre-wrap mb-2">{proj.description}</p>
+                                    {proj.techStack && proj.techStack.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                            {proj.techStack.map((tech, idx) => (
+                                                <span key={idx} className="text-[10px] bg-gray-500/10 px-1.5 py-0.5 rounded border border-gray-500/20 opacity-80">
+                                                    {tech}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            default: return null;
+        }
+    };
 
     // --- Layouts ---
 
-    // 1. Single Column Layout (Onyx, Bronzor, Glalie, Kakuna, Ditto, Lapras)
+    // 1. Single Column Layout
     if (t.layout === 'single') {
+        const sections = activeMain.length > 0 ? activeMain : defaultLayout.main;
+        
         return (
             <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] p-[15mm] shadow-2xl origin-top", t.container)}>
                 <div className={t.header}>
@@ -389,87 +604,63 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
                     {data.basics.photo && <ContactDetails className="mt-4" />}
                 </div>
 
-                {data.basics.summary && (
-                    <div className="mb-6">
-                        <h3 className={t.sectionTitle}>Profile</h3>
-                        <p className="text-sm leading-relaxed opacity-90">{data.basics.summary}</p>
-                    </div>
-                )}
+                <Reorder.Group axis="y" values={sections} onReorder={(newOrder) => onReorder(newOrder, [])}>
+                    {sections.map(section => (
+                         <DraggableSection key={section} item={section}>
+                             {renderSection(section, 'main')}
+                         </DraggableSection>
+                    ))}
+                </Reorder.Group>
 
-                {data.experience.length > 0 && (
-                    <div className="mb-6">
-                        <h3 className={t.sectionTitle}>Experience</h3>
-                        <ExperienceList />
-                    </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-8">
-                     {data.education.length > 0 && (
-                        <div>
-                            <h3 className={t.sectionTitle}>Education</h3>
-                            <EducationList />
-                        </div>
-                     )}
-                     {data.skills.length > 0 && (
-                        <div>
-                            <h3 className={t.sectionTitle}>Skills</h3>
-                            <SkillsList />
-                        </div>
-                     )}
+                {/* Page Break Guide */}
+                <div className="absolute top-[297mm] left-0 w-full border-b-2 border-red-400 border-dashed opacity-30 pointer-events-none print:hidden z-50">
+                     <span className="absolute right-2 bottom-1 text-[10px] text-red-400 font-mono">End of Page 1</span>
                 </div>
             </div>
         );
     }
 
-    // 2. Two Column Left Sidebar (Azurill, Gengar, Leafish)
+    // 2. Two Column Left Sidebar
     if (t.layout === 'two-left') {
+        const sidebarSections = activeSidebar.length > 0 ? activeSidebar : twoColumnLeftDefault.sidebar;
+        const mainSections = activeMain.length > 0 ? activeMain : twoColumnLeftDefault.main;
+
         return (
             <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] shadow-2xl origin-top", t.container)}>
                 {/* Sidebar */}
                 <div className={t.sidebar}>
-                    {/* Name/Contact in Sidebar for Gengar/Leafish styles, or top? 
-                        Design Choice: Gengar/Leafish put name in sidebar. Azurill puts name in main. 
-                    */}
                     {(template === 'gengar' || template === 'leafish') && (
                         <div className="mb-8">
-                             <div className="w-20 h-20 rounded-full bg-white/10 mb-4 overflow-hidden">
-                                 {data.basics.photo ? (
-                                     <img src={data.basics.photo} alt="Profile" className="w-full h-full object-cover" />
-                                 ) : (
-                                     <User className="w-full h-full p-4 text-white/50" />
-                                 )}
-                             </div>
-                             <h1 className={t.name}>{data.basics.name}</h1>
-                             <p className={t.headline}>{data.basics.headline}</p>
-                             <div className="flex flex-col gap-2 text-sm opacity-80 mt-4">
+                                <div className="w-20 h-20 rounded-full bg-white/10 mb-4 overflow-hidden">
+                                    {data.basics.photo ? (
+                                        <img src={data.basics.photo} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User className="w-full h-full p-4 text-white/50" />
+                                    )}
+                                </div>
+                                <h1 className={t.name}>{data.basics.name}</h1>
+                                <p className={t.headline}>{data.basics.headline}</p>
+                                <div className="flex flex-col gap-2 text-sm opacity-80 mt-4">
                                 <ContactLine icon={Mail} value={data.basics.email} />
                                 <ContactLine icon={Phone} value={data.basics.phone} />
                                 <ContactLine icon={MapPin} value={data.basics.location} />
                                 <ContactLine icon={LinkIcon} value={data.basics.website} />
-                             </div>
+                                </div>
                         </div>
                     )}
 
-                    {/* Sidebar Sections */}
-                    {data.education.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className={t.sectionTitleSidebar}>Education</h3>
-                            <EducationList />
-                        </div>
-                    )}
-
-                    {data.skills.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className={t.sectionTitleSidebar}>Skills</h3>
-                            <SkillsList vertical={true} />
-                        </div>
-                    )}
+                    <Reorder.Group axis="y" values={sidebarSections} onReorder={(newOrder) => onReorder(mainSections, newOrder)}>
+                        {sidebarSections.map(section => (
+                            <DraggableSection key={section} item={section}>
+                                {renderSection(section, 'sidebar')}
+                            </DraggableSection>
+                        ))}
+                    </Reorder.Group>
                 </div>
 
                 {/* Main Content */}
                 <div className={t.main}>
-                     {/* Azurill Header is in Main */}
-                     {template === 'azurill' && (
+                        {template === 'azurill' && (
                         <div className="mb-8 border-b border-gray-100 pb-8">
                             <div className="flex items-center gap-6">
                                 {data.basics.photo && (
@@ -486,21 +677,20 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
                             </div>
                             <ContactDetails className="mt-4" />
                         </div>
-                     )}
+                        )}
 
-                     {data.basics.summary && (
-                        <div className="mb-8">
-                            <h3 className={template === 'azurill' ? t.sectionTitleMain : t.sectionTitleMain.replace('text-2xl', 'text-xl')}>Profile</h3>
-                            <p className="text-sm leading-relaxed opacity-90">{data.basics.summary}</p>
-                        </div>
-                     )}
+                        <Reorder.Group axis="y" values={mainSections} onReorder={(newOrder) => onReorder(newOrder, sidebarSections)}>
+                            {mainSections.map(section => (
+                                <DraggableSection key={section} item={section}>
+                                    {renderSection(section, 'main')}
+                                </DraggableSection>
+                            ))}
+                        </Reorder.Group>
+                </div>
 
-                     {data.experience.length > 0 && (
-                        <div>
-                            <h3 className={t.sectionTitleMain}>Experience</h3>
-                            <ExperienceList />
-                        </div>
-                     )}
+                {/* Page Break Guide */}
+                <div className="absolute top-[297mm] left-0 w-full border-b-2 border-red-400 border-dashed opacity-30 pointer-events-none print:hidden z-50">
+                     <span className="absolute right-2 bottom-1 text-[10px] text-red-400 font-mono">End of Page 1</span>
                 </div>
             </div>
         );
@@ -508,6 +698,9 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
 
     // 3. Two Column Right Sidebar (Chikorita)
     if (t.layout === 'two-right') {
+        const sidebarSections = activeSidebar.length > 0 ? activeSidebar : twoColumnRightDefault.sidebar;
+        const mainSections = activeMain.length > 0 ? activeMain : twoColumnRightDefault.main;
+
          return (
             <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] shadow-2xl origin-top", t.container)}>
                 {/* Main Content (Left) */}
@@ -529,36 +722,29 @@ const DocumentPreview = ({ data, template }: { data: Resume['data'], template: s
                         <ContactDetails className="mt-4" />
                      </div>
 
-                     {data.basics.summary && (
-                        <div className="mb-8">
-                            <h3 className={t.sectionTitleMain}>Professional Summary</h3>
-                            <p className="text-sm leading-relaxed opacity-90">{data.basics.summary}</p>
-                        </div>
-                     )}
-
-                     {data.experience.length > 0 && (
-                        <div>
-                            <h3 className={t.sectionTitleMain}>Work Experience</h3>
-                            <ExperienceList />
-                        </div>
-                     )}
+                     <Reorder.Group axis="y" values={mainSections} onReorder={(newOrder) => onReorder(newOrder, sidebarSections)}>
+                        {mainSections.map(section => (
+                            <DraggableSection key={section} item={section}>
+                                {renderSection(section, 'main')}
+                            </DraggableSection>
+                        ))}
+                    </Reorder.Group>
                 </div>
 
                 {/* Sidebar (Right) */}
                 <div className={t.sidebar}>
-                    {data.skills.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className={t.sectionTitleSidebar}>Skills</h3>
-                            <SkillsList vertical={true} />
-                        </div>
-                    )}
+                    <Reorder.Group axis="y" values={sidebarSections} onReorder={(newOrder) => onReorder(mainSections, newOrder)}>
+                        {sidebarSections.map(section => (
+                            <DraggableSection key={section} item={section}>
+                                {renderSection(section, 'sidebar')}
+                            </DraggableSection>
+                        ))}
+                    </Reorder.Group>
+                </div>
 
-                    {data.education.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className={t.sectionTitleSidebar}>Education</h3>
-                            <EducationList />
-                        </div>
-                    )}
+                {/* Page Break Guide */}
+                <div className="absolute top-[297mm] left-0 w-full border-b-2 border-red-400 border-dashed opacity-30 pointer-events-none print:hidden z-50">
+                     <span className="absolute right-2 bottom-1 text-[10px] text-red-400 font-mono">End of Page 1</span>
                 </div>
             </div>
         );
@@ -571,7 +757,7 @@ export const Editor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { 
-      currentResume, setCurrentResume, updateCurrentResumeData, saveCurrentResume, 
+      currentResume, setCurrentResume, updateCurrentResumeData, updateCurrentResumeMetadata, updateSectionOrder, saveCurrentResume, 
       setLoading, publishTemplate, runATSAnalysis, generateSummaryWithAI, generateExperienceWithAI,
       suggestSkillsWithAI, isLoading, user
   } = useStore();
@@ -662,16 +848,16 @@ export const Editor = () => {
   };
 
   // List Handlers
-  const addItem = (section: 'experience' | 'education' | 'skills', item: any) => {
-      const items = currentResume.data[section] as any[];
+  const addItem = (section: 'experience' | 'education' | 'skills' | 'certificates' | 'activities' | 'languages' | 'projects', item: any) => {
+      const items = (currentResume.data[section] || []) as any[];
       updateCurrentResumeData(section, [...items, { ...item, id: Date.now().toString() }]);
   };
-  const updateItem = (section: 'experience' | 'education' | 'skills', id: string, data: any) => {
-      const items = currentResume.data[section] as any[];
+  const updateItem = (section: 'experience' | 'education' | 'skills' | 'certificates' | 'activities' | 'languages' | 'projects', id: string, data: any) => {
+      const items = (currentResume.data[section] || []) as any[];
       updateCurrentResumeData(section, items.map(i => i.id === id ? data : i));
   };
-  const deleteItem = (section: 'experience' | 'education' | 'skills', id: string) => {
-      const items = currentResume.data[section] as any[];
+  const deleteItem = (section: 'experience' | 'education' | 'skills' | 'certificates' | 'activities' | 'languages' | 'projects', id: string) => {
+      const items = (currentResume.data[section] || []) as any[];
       updateCurrentResumeData(section, items.filter(i => i.id !== id));
   };
 
@@ -681,6 +867,11 @@ export const Editor = () => {
       { id: 'experience', icon: Briefcase, label: 'Experience' },
       { id: 'education', icon: GraduationCap, label: 'Education' },
       { id: 'skills', icon: Wrench, label: 'Skills' },
+      { id: 'certificates', icon: Award, label: 'Certificates' },
+      { id: 'languages', icon: Globe, label: 'Languages' },
+      { id: 'projects', icon: FolderGit2, label: 'Projects' },
+      { id: 'activities', icon: Heart, label: 'Hobbies' },
+      { id: 'design', icon: Layout, label: 'Design' },
   ];
 
   return (
@@ -782,6 +973,98 @@ export const Editor = () => {
                     )}
                 />
             )}
+            {activeSection === 'certificates' && (
+                <ListSectionEditor<CertificateItem>
+                    items={currentResume.data.certificates || []}
+                    renderItem={(item) => ({ title: item.name, subtitle: item.issuer, dates: item.date })}
+                    onAdd={() => addItem('certificates', { name: 'Certificate Name', issuer: 'Issuer', date: '2024', url: '', visible: true })}
+                    onDelete={(id) => deleteItem('certificates', id)}
+                    onUpdate={(id, data) => updateItem('certificates', id, data)}
+                    renderEditor={(item, handleChange) => (
+                        <div className="space-y-4">
+                            <Input label="Certificate Name" value={item.name} onChange={e => handleChange('name', e.target.value)} />
+                            <Input label="Issuing Organization" value={item.issuer} onChange={e => handleChange('issuer', e.target.value)} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input label="Issue Date" value={item.date} onChange={e => handleChange('date', e.target.value)} />
+                                <Input label="Certificate URL (Optional)" value={item.url} onChange={e => handleChange('url', e.target.value)} />
+                            </div>
+                        </div>
+                    )}
+                />
+            )}
+            {activeSection === 'activities' && (
+                <ListSectionEditor<ActivityItem>
+                    items={currentResume.data.activities || []}
+                    renderItem={(item) => ({ title: item.name, subtitle: item.description })}
+                    onAdd={() => addItem('activities', { name: 'Activity/Hobby', description: 'Description...', visible: true })}
+                    onDelete={(id) => deleteItem('activities', id)}
+                    onUpdate={(id, data) => updateItem('activities', id, data)}
+                    renderEditor={(item, handleChange) => (
+                        <div className="space-y-4">
+                            <Input label="Activity / Hobby" value={item.name} onChange={e => handleChange('name', e.target.value)} />
+                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">Description</label>
+                                <textarea rows={3} value={item.description} onChange={e => handleChange('description', e.target.value)} className="w-full rounded-xl border border-gray-800 bg-white/5 px-3 py-2 text-sm text-white focus:ring-2 focus:ring-primary-600/50 focus:border-primary-600 outline-none resize-none" />
+                            </div>
+                        </div>
+                    )}
+                />
+            )}
+            {activeSection === 'languages' && (
+                <ListSectionEditor<LanguageItem>
+                    items={currentResume.data.languages || []}
+                    renderItem={(item) => ({ title: item.name, subtitle: item.fluency })}
+                    onAdd={() => addItem('languages', { name: 'Language', fluency: 'Native', visible: true })}
+                    onDelete={(id) => deleteItem('languages', id)}
+                    onUpdate={(id, data) => updateItem('languages', id, data)}
+                    renderEditor={(item, handleChange) => (
+                        <div className="space-y-4">
+                            <Input label="Language" value={item.name} onChange={e => handleChange('name', e.target.value)} />
+                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">Fluency</label>
+                                <select 
+                                    value={item.fluency} 
+                                    onChange={e => handleChange('fluency', e.target.value)}
+                                    className="w-full rounded-xl border border-gray-800 bg-white/5 px-3 py-2 text-sm text-white focus:ring-2 focus:ring-primary-600/50 focus:border-primary-600 outline-none"
+                                >
+                                    <option value="Native">Native</option>
+                                    <option value="Fluent">Fluent</option>
+                                    <option value="Intermediate">Intermediate</option>
+                                    <option value="Beginner">Beginner</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+                />
+            )}
+            {activeSection === 'projects' && (
+                <ListSectionEditor<ProjectItem>
+                    items={currentResume.data.projects || []}
+                    renderItem={(item) => ({ title: item.name, subtitle: item.description?.substring(0, 30) + (item.description?.length > 30 ? '...' : '') })}
+                    onAdd={() => addItem('projects', { name: 'Project Name', description: 'Brief description...', techStack: [], visible: true })}
+                    onDelete={(id) => deleteItem('projects', id)}
+                    onUpdate={(id, data) => updateItem('projects', id, data)}
+                    renderEditor={(item, handleChange) => (
+                        <div className="space-y-4">
+                            <Input label="Project Name" value={item.name} onChange={e => handleChange('name', e.target.value)} />
+                            <Input label="Link (Optional)" value={item.link || ''} onChange={e => handleChange('link', e.target.value)} />
+                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">Tech Stack (Comma separated)</label>
+                                <input 
+                                    type="text" 
+                                    value={item.techStack?.join(', ') || ''} 
+                                    onChange={e => handleChange('techStack', e.target.value.split(',').map((s: string) => s.trim()))}
+                                    className="w-full rounded-xl border border-gray-800 bg-white/5 px-3 py-2 text-sm text-white focus:ring-2 focus:ring-primary-600/50 focus:border-primary-600 outline-none"
+                                />
+                            </div>
+                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">Description</label>
+                                <textarea rows={3} value={item.description} onChange={e => handleChange('description', e.target.value)} className="w-full rounded-xl border border-gray-800 bg-white/5 px-3 py-2 text-sm text-white focus:ring-2 focus:ring-primary-600/50 focus:border-primary-600 outline-none resize-none" />
+                            </div>
+                        </div>
+                    )}
+                />
+            )}
             {activeSection === 'skills' && (
                 <div className="space-y-4 animate-slide-up">
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -859,6 +1142,41 @@ export const Editor = () => {
                     </div>
                 </div>
             )}
+            {activeSection === 'design' && (
+                <div className="space-y-6 animate-slide-up">
+                    <p className="text-sm text-gray-400">Choose a template style. Your content will be preserved.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        {[
+                            { id: 'onyx', name: 'Onyx', color: 'bg-white' },
+                            { id: 'azurill', name: 'Azurill', color: 'bg-slate-100' },
+                            { id: 'bronzor', name: 'Bronzor', color: 'bg-[#fdfbf7]' },
+                            { id: 'gengar', name: 'Gengar', color: 'bg-[#1e1b4b]' },
+                            { id: 'glalie', name: 'Glalie', color: 'bg-gray-50' },
+                            { id: 'kakuna', name: 'Kakuna', color: 'bg-yellow-50' },
+                            { id: 'chikorita', name: 'Chikorita', color: 'bg-emerald-50' },
+                            { id: 'ditto', name: 'Ditto', color: 'bg-black' },
+                            { id: 'lapras', name: 'Lapras', color: 'bg-blue-50' },
+                            { id: 'leafish', name: 'Leafish', color: 'bg-green-900' }
+                        ].map((template) => (
+                            <div 
+                                key={template.id}
+                                onClick={() => updateCurrentResumeMetadata({ template: template.id })}
+                                className={cn(
+                                    "cursor-pointer rounded-xl border-2 p-3 transition-all flex flex-col items-center gap-2 hover:scale-105",
+                                    currentResume.metadata.template === template.id 
+                                        ? "border-primary-500 bg-primary-500/10 shadow-lg shadow-primary-500/20" 
+                                        : "border-gray-800 bg-white/5 hover:border-gray-600"
+                                )}
+                            >
+                                <div className={cn("w-full aspect-[3/4] rounded-lg shadow-inner", template.color)} />
+                                <span className={cn("text-xs font-medium capitalize", currentResume.metadata.template === template.id ? "text-primary-400" : "text-gray-400")}>
+                                    {template.name}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
 
         <div className="p-4 border-t border-gray-800 bg-[#0f0f0f]">
@@ -898,7 +1216,13 @@ export const Editor = () => {
         {/* Preview Canvas */}
         <div className="flex-1 overflow-auto p-12 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
              <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
-                 <DocumentPreview data={currentResume.data} template={currentResume.metadata.template} />
+                 <DocumentPreview 
+                    data={currentResume.data} 
+                    template={currentResume.metadata.template} 
+                    layout={currentResume.metadata.layout}
+                    onReorder={updateSectionOrder}
+                    compactMode={currentResume.metadata.compactMode}
+                 />
              </div>
         </div>
       </div>

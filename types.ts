@@ -27,6 +27,38 @@ export interface EducationItem {
   visible: boolean;
 }
 
+export interface LanguageItem {
+  id: string;
+  name: string;
+  fluency: string; // "Native", "Fluent", "Intermediate", "Beginner"
+  visible: boolean;
+}
+
+export interface ProjectItem {
+  id: string;
+  name: string;
+  description: string;
+  link?: string;
+  techStack: string[]; // e.g. ["React", "Node.js"]
+  visible: boolean;
+}
+
+export interface CertificateItem {
+  id: string;
+  name: string;
+  issuer: string;
+  date: string; // Issue Date
+  url?: string;
+  visible: boolean;
+}
+
+export interface ActivityItem { // Hobbies, Volunteering, etc.
+  id: string;
+  name: string;
+  description: string;
+  visible: boolean;
+}
+
 export interface ResumeBasics {
   name: string;
   headline: string;
@@ -43,6 +75,10 @@ export interface ResumeData {
   experience: ExperienceItem[];
   education: EducationItem[];
   skills: { id: string; name: string; level: number }[];
+  certificates: CertificateItem[];
+  activities: ActivityItem[];
+  languages: LanguageItem[];
+  projects: ProjectItem[];
 }
 
 export interface ResumeMetadata {
@@ -52,6 +88,11 @@ export interface ResumeMetadata {
     text: string;
     background: string;
   };
+  layout?: {
+      main: SectionType[];
+      sidebar: SectionType[];
+  };
+  compactMode?: boolean; // For single-page optimization
 }
 
 export interface Resume {
@@ -89,4 +130,4 @@ export interface ATSAnalysis {
     summary: string;
 }
 
-export type SectionType = 'basics' | 'summary' | 'experience' | 'education' | 'skills';
+export type SectionType = 'basics' | 'summary' | 'experience' | 'education' | 'skills' | 'design' | 'certificates' | 'activities' | 'languages' | 'projects';

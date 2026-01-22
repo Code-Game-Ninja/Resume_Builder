@@ -1,83 +1,180 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    
+    // ============= HELPER FUNCTIONS =============
+    
+    // Check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
     
+    // Check if user is owner
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Validate email format
     function isValidEmail(email) {
       return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
     }
     
+    // Check data size limits
     function isValidSize(data, maxSize) {
-      return request.resource.size() <= maxSize;
+      return request.resource.size() < maxSize;
     }
     
-    // Users collection
+    // Validate timestamp is recent (within 1 hour)
+    function isRecentTimestamp() {
+      return request.time < request.resource.data.updatedAt + duration.value(1, 'h');
+    }
+    
+    // ============= USERS COLLECTION =============
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isAuthenticated() 
-                    && isOwner(userId)
-                    && isValidEmail(request.resource.data.email)
-                    && request.resource.data.name.size() >= 2
-                    && request.resource.data.name.size() <= 100
-                    && isValidSize(request.resource.data, 5 * 1024); // 5KB
-      allow update: if isOwner(userId)
-                    && isValidEmail(request.resource.data.email)
-                    && request.resource.data.name.size() >= 2
-                    && request.resource.data.name.size() <= 100
-                    && request.resource.data.userId == resource.data.userId // Immutable
-                    && isValidSize(request.resource.data, 5 * 1024);
+      
+      allow create: if isOwner(userId) && 
+                       request.resource.data.keys().hasAll(['id', 'email', 'name']) &&
+                       request.resource.data.id == userId &&
+                       isValidEmail(request.resource.data.email) &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() >= 2 &&
+                       request.resource.data.name.size() <= 100 &&
+                       isValidSize(request.resource.data, 5000); // 5KB limit
+      
+      allow update: if isOwner(userId) &&
+                       request.resource.data.id == resource.data.id &&
+                       request.resource.data.email == resource.data.email &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() >= 2 &&
+                       request.resource.data.name.size() <= 100 &&
+                       isValidSize(request.resource.data, 5000);
+      
       allow delete: if isOwner(userId);
     }
-    
-    // Resumes collection
+
+    // ============= RESUMES COLLECTION =============
     match /resumes/{resumeId} {
-      allow read: if isOwner(resource.data.userId);
-      allow create: if isAuthenticated()
-                    && isOwner(request.resource.data.userId)
-                    && request.resource.data.title.size() >= 1
-                    && request.resource.data.title.size() <= 200
-                    && request.resource.data.experience.size() <= 50
-                    && request.resource.data.education.size() <= 20
-                    && request.resource.data.skills.size() <= 100
-                    && isValidSize(request.resource.data, 500 * 1024); // 500KB
-      allow update: if isOwner(resource.data.userId)
-                    && request.resource.data.userId == resource.data.userId // Immutable
-                    && request.resource.data.title.size() >= 1
-                    && request.resource.data.title.size() <= 200
-                    && request.resource.data.experience.size() <= 50
-                    && request.resource.data.education.size() <= 20
-                    && request.resource.data.skills.size() <= 100
-                    && isValidSize(request.resource.data, 500 * 1024);
-      allow delete: if isOwner(resource.data.userId);
+      // Read own resume
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Create new resume
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       // Required fields
+                       request.resource.data.keys().hasAll(['userId', 'name', 'data', 'metadata', 'updatedAt']) &&
+                       // Validate name
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() >= 1 &&
+                       request.resource.data.name.size() <= 100 &&
+                       // Validate data structure
+                       request.resource.data.data.keys().hasAll(['basics', 'experience', 'education', 'skills']) &&
+                       request.resource.data.data.basics is map &&
+                       request.resource.data.data.experience is list &&
+                       request.resource.data.data.education is list &&
+                       request.resource.data.data.skills is list &&
+                       // Validate metadata
+                       request.resource.data.metadata.keys().hasAll(['template']) &&
+                       request.resource.data.metadata.template is string &&
+                       // Size limit: 500KB per resume
+                       isValidSize(request.resource.data, 500000) &&
+                       // Array size limits
+                       request.resource.data.data.experience.size() <= 50 &&
+                       request.resource.data.data.education.size() <= 20 &&
+                       request.resource.data.data.skills.size() <= 100 &&
+                       // Additional sections if present
+                       (!('certificates' in request.resource.data.data) || request.resource.data.data.certificates.size() <= 20) &&
+                       (!('activities' in request.resource.data.data) || request.resource.data.data.activities.size() <= 20) &&
+                       (!('languages' in request.resource.data.data) || request.resource.data.data.languages.size() <= 20) &&
+                       (!('projects' in request.resource.data.data) || request.resource.data.data.projects.size() <= 20);
+      
+      // Update own resume
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       // Cannot change userId
+                       request.resource.data.userId == resource.data.userId &&
+                       // Required fields still present
+                       request.resource.data.keys().hasAll(['userId', 'name', 'data', 'metadata', 'updatedAt']) &&
+                       // Validate name
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() >= 1 &&
+                       request.resource.data.name.size() <= 100 &&
+                       // Validate data structure
+                       request.resource.data.data.keys().hasAll(['basics', 'experience', 'education', 'skills']) &&
+                       request.resource.data.data.basics is map &&
+                       request.resource.data.data.experience is list &&
+                       request.resource.data.data.education is list &&
+                       request.resource.data.data.skills is list &&
+                       // Validate metadata
+                       request.resource.data.metadata is map &&
+                       // Size limit: 500KB per resume
+                       isValidSize(request.resource.data, 500000) &&
+                       // Array size limits
+                       request.resource.data.data.experience.size() <= 50 &&
+                       request.resource.data.data.education.size() <= 20 &&
+                       request.resource.data.data.skills.size() <= 100 &&
+                       // Additional sections strict type checking if present
+                       (!('certificates' in request.resource.data.data) || (request.resource.data.data.certificates is list && request.resource.data.data.certificates.size() <= 20)) &&
+                       (!('activities' in request.resource.data.data) || (request.resource.data.data.activities is list && request.resource.data.data.activities.size() <= 20)) &&
+                       (!('languages' in request.resource.data.data) || (request.resource.data.data.languages is list && request.resource.data.data.languages.size() <= 20)) &&
+                       (!('projects' in request.resource.data.data) || (request.resource.data.data.projects is list && request.resource.data.data.projects.size() <= 20));
+      
+      // Delete own resume
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
     }
-    
-    // Templates collection
+
+    // ============= TEMPLATES COLLECTION =============
     match /templates/{templateId} {
-      allow read: if resource.data.community == true || isOwner(resource.data.author);
-      allow create: if isAuthenticated()
-                    && isOwner(request.resource.data.author)
-                    && request.resource.data.name.size() >= 1
-                    && request.resource.data.name.size() <= 100
-                    && request.resource.data.tags.size() <= 10
-                    && isValidSize(request.resource.data, 50 * 1024); // 50KB
-      allow update: if isOwner(resource.data.author)
-                    && request.resource.data.author == resource.data.author // Immutable
-                    && request.resource.data.name.size() >= 1
-                    && request.resource.data.name.size() <= 100
-                    && request.resource.data.tags.size() <= 10
-                    && isValidSize(request.resource.data, 50 * 1024);
-      allow delete: if isOwner(resource.data.author);
+      // All authenticated users can read templates
+      allow read: if isAuthenticated();
+      
+      // Create new community template
+      allow create: if isAuthenticated() &&
+                       // Required fields
+                       request.resource.data.keys().hasAll(['name', 'description', 'thumbnail', 'isCommunity', 'author', 'tags', 'config']) &&
+                       // Must be community template
+                       request.resource.data.isCommunity == true &&
+                       // Validate fields
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() >= 1 &&
+                       request.resource.data.name.size() <= 50 &&
+                       request.resource.data.description is string &&
+                       request.resource.data.description.size() <= 500 &&
+                       request.resource.data.thumbnail is string &&
+                       request.resource.data.author is string &&
+                       request.resource.data.tags is list &&
+                       request.resource.data.tags.size() >= 1 &&
+                       request.resource.data.tags.size() <= 10 &&
+                       request.resource.data.config is map &&
+                       // Size limit: 50KB per template
+                       isValidSize(request.resource.data, 50000);
+      
+      // Update only own community templates
+      allow update: if isAuthenticated() && 
+                       resource.data.isCommunity == true &&
+                       // Cannot change critical fields
+                       request.resource.data.isCommunity == resource.data.isCommunity &&
+                       request.resource.data.author == resource.data.author &&
+                       // Validate fields
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() >= 1 &&
+                       request.resource.data.name.size() <= 50 &&
+                       request.resource.data.description is string &&
+                       request.resource.data.description.size() <= 500 &&
+                       request.resource.data.tags is list &&
+                       request.resource.data.tags.size() >= 1 &&
+                       request.resource.data.tags.size() <= 10 &&
+                       isValidSize(request.resource.data, 50000);
+      
+      // Delete only own community templates
+      allow delete: if isAuthenticated() && 
+                       resource.data.isCommunity == true &&
+                       resource.data.author == request.auth.token.name;
     }
-    
-    // Deny all other access
+
+    // ============= DEFAULT DENY ALL =============
     match /{document=**} {
       allow read, write: if false;
     }

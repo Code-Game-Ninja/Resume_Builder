@@ -6,6 +6,7 @@ import { Editor } from './pages/Editor';
 import { Templates } from './pages/Templates';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
+import { ATSChecker } from './pages/ATSChecker';
 import { useStore } from './store';
 
 // Protected Route Component - waits for auth to be checked before redirecting
@@ -47,6 +48,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <Templates />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ats-checker"
+            element={
+              <ProtectedRoute>
+                <ATSChecker />
               </ProtectedRoute>
             }
           />

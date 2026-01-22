@@ -8,7 +8,7 @@ import { gsap } from 'gsap';
 const navItems = [
   { label: 'Dashboard', href: '/' },
   { label: 'Templates', href: '/templates' },
-  { label: 'Settings', href: '/settings' },
+  { label: 'ATS Checker', href: '/ats-checker' },
 ];
 
 // User dropdown menu component
@@ -77,6 +77,13 @@ const UserMenu = () => {
             <p className="text-xs text-white/50 truncate">{user.email}</p>
           </div>
           <div className="p-1">
+            <button
+              onClick={() => { setIsOpen(false); navigate('/settings'); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:bg-white/10 rounded-xl transition-colors mb-1"
+            >
+              <UserIcon size={14} />
+              Profile & Settings
+            </button>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:bg-white/10 rounded-xl transition-colors"

@@ -77,9 +77,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = 'Input';
 
 // --- Card ---
-export const Card = ({ children, className }: { children?: React.ReactNode; className?: string }) => {
+// --- Card ---
+export const Card = ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => {
   return (
-    <div className={cn('glass-panel rounded-2xl p-6 shadow-xl', className)}>
+    <div className={cn('glass-panel rounded-2xl p-6 shadow-xl', className)} {...props}>
       {children}
     </div>
   );

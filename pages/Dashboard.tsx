@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button } from '../components/UIComponents';
-import { Plus, Eye, MoreVertical, Search, Clock, Trash2, Copy, Sparkles, LayoutTemplate, FileText, ArrowRight } from 'lucide-react';
+import { Plus, Eye, MoreVertical, Search, Clock, Trash2, Copy, Sparkles, LayoutTemplate, FileText, ArrowRight, Globe } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import gsap from 'gsap';
@@ -43,10 +43,11 @@ interface ResumeCardProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onPublish: (id: string) => void;
   index: number;
 }
 
-const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete, onDuplicate, index }) => {
+const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete, onDuplicate, onPublish, index }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,6 +113,12 @@ const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete, onDup
                         >
                             <Copy size={16} /> Duplicate
                         </DropdownMenu.Item>
+                        <DropdownMenu.Item 
+                            className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-300 hover:bg-white/10 hover:text-white rounded-lg cursor-pointer outline-none transition-colors"
+                            onClick={() => onPublish(resume.id)}
+                        >
+                            <Globe size={16} /> Publish
+                        </DropdownMenu.Item>
                         <DropdownMenu.Separator className="h-px bg-white/10 my-1.5" />
                         <DropdownMenu.Item 
                             className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-lg cursor-pointer outline-none transition-colors"
@@ -135,7 +142,7 @@ const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete, onDup
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const { resumes, fetchResumes, createResume, deleteResume, duplicateResume, user } = useStore();
+  const { resumes, fetchResumes, createResume, deleteResume, duplicateResume, publishTemplate, user } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [greeting, setGreeting] = useState('');
 
@@ -228,16 +235,6 @@ export const Dashboard = () => {
           </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-20">
-            {/* Create New Shortcut Card */}
-            <button 
-                onClick={handleCreateNew}
-                className="group relative flex flex-col items-center justify-center gap-4 h-full min-h-[400px] rounded-2xl border-2 border-dashed border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-primary-500/30 transition-all duration-300"
-            >
-                <div className="h-16 w-16 rounded-full bg-white/5 group-hover:bg-primary-500/20 group-hover:text-primary-400 text-gray-500 flex items-center justify-center transition-all duration-300 scale-100 group-hover:scale-110">
-                    <Plus size={32} />
-                </div>
-                <span className="font-medium text-gray-400 group-hover:text-white transition-colors">Create New Resume</span>
-            </button>
 
             {filteredResumes.map((resume, index) => (
             <ResumeCard 
@@ -247,6 +244,7 @@ export const Dashboard = () => {
                 onEdit={(id) => navigate(`/editor/${id}`)}
                 onDelete={deleteResume}
                 onDuplicate={duplicateResume}
+                onPublish={publishTemplate}
             />
             ))}
         </div>
