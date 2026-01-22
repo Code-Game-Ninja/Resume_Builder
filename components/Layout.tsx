@@ -1,94 +1,126 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store';
-import { LayoutDashboard, FileText, Settings, LogOut, User as UserIcon, Plus } from 'lucide-react';
+import { LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
+import PillNav from './PillNav';
+import { gsap } from 'gsap';
 
-// Simple utility function for className merging
-function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(' ');
-}
+const navItems = [
+  { label: 'Dashboard', href: '/' },
+  { label: 'Templates', href: '/templates' },
+  { label: 'Settings', href: '/settings' },
+];
 
-const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-      active 
-        ? "bg-primary-600/10 text-primary-400 shadow-inner" 
-        : "text-gray-400 hover:bg-white/5 hover:text-gray-100"
-    )}
-  >
-    <Icon size={20} className={cn(active ? "text-primary-400" : "text-gray-500 group-hover:text-gray-300")} />
-    <span className="font-medium">{label}</span>
-  </button>
-);
-
-export const Layout = ({ children }: { children?: React.ReactNode }) => {
+// User dropdown menu component
+const UserMenu = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const user = useStore((state) => state.user);
   const signOut = useStore((state) => state.signOut);
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (dropdownRef.current) {
+      if (isOpen) {
+        gsap.fromTo(dropdownRef.current, 
+          { opacity: 0, y: -10, scale: 0.95 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.2, ease: 'power2.out' }
+        );
+      }
+    }
+  }, [isOpen]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
 
-  if (location.pathname === '/login') return <>{children}</>;
+  if (!user) return null;
 
   return (
-    <div className="flex h-screen w-full bg-[#0a0a0a] overflow-hidden text-gray-100">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-800 bg-[#0f0f0f]/50 backdrop-blur-xl flex flex-col p-4">
-        <div className="flex items-center gap-3 px-2 py-4 mb-6">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary-500/20">
-            R
+    <div ref={menuRef} className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/10"
+      >
+        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center overflow-hidden">
+          {user.avatar ? (
+            <img src={user.avatar} className="w-full h-full object-cover" alt={user.name} />
+          ) : (
+            <UserIcon size={14} className="text-white" />
+          )}
+        </div>
+        <span className="text-sm font-medium text-white hidden lg:block max-w-[100px] truncate">
+          {user.name || 'User'}
+        </span>
+        <ChevronDown size={14} className={`text-white/60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div
+          ref={dropdownRef}
+          className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden z-50"
+        >
+          <div className="p-3 border-b border-white/10">
+            <p className="text-sm font-medium text-white truncate">{user.name}</p>
+            <p className="text-xs text-white/50 truncate">{user.email}</p>
           </div>
-          <span className="font-bold text-xl tracking-tight text-white">Resumify</span>
-        </div>
-
-        <div className="space-y-2 flex-1">
-          <SidebarItem 
-            icon={LayoutDashboard} 
-            label="Dashboard" 
-            active={location.pathname === '/'} 
-            onClick={() => navigate('/')} 
-          />
-          <SidebarItem 
-            icon={FileText} 
-            label="Templates" 
-            active={location.pathname === '/templates'} 
-            onClick={() => navigate('/templates')} 
-          />
-          <SidebarItem 
-            icon={Settings} 
-            label="Settings" 
-            active={location.pathname === '/settings'} 
-            onClick={() => navigate('/settings')} 
-          />
-        </div>
-
-        {/* User Profile */}
-        <div className="mt-auto border-t border-gray-800 pt-4">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-            <div className="h-9 w-9 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-               {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <UserIcon size={16} />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.name || 'Guest'}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email || 'Sign in'}</p>
-            </div>
-            <button onClick={handleSignOut} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-              <LogOut size={16} className="text-gray-500 hover:text-red-400 transition-colors" />
+          <div className="p-1">
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white/80 hover:bg-white/10 rounded-xl transition-colors"
+            >
+              <LogOut size={14} />
+              Sign out
             </button>
           </div>
         </div>
-      </aside>
+      )}
+    </div>
+  );
+};
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto relative">
-        <div className="absolute inset-0 bg-gradient-to-tr from-primary-900/10 via-transparent to-transparent pointer-events-none" />
-        {children}
+export const Layout = ({ children }: { children?: React.ReactNode }) => {
+  const location = useLocation();
+
+  // Don't show navbar on login page
+  if (location.pathname === '/login') return <>{children}</>;
+
+  return (
+    <div className="h-screen w-full bg-[#0a0a0a] text-gray-100 overflow-hidden flex flex-col">
+      {/* PillNav - with primary color hover transition */}
+      <PillNav
+        items={navItems}
+        logo={
+          <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-primary-500/30">
+            R
+          </div>
+        }
+        baseColor="#ef4444"
+        pillColor="#1a1a1a"
+        hoveredPillTextColor="#ffffff"
+        pillTextColor="#ffffff"
+        initialLoadAnimation={true}
+        rightContent={<UserMenu />}
+      />
+
+      {/* Main Content - Full height */}
+      <main className="flex-1 overflow-auto pt-16">
+        <div className="h-full w-full relative">
+          <div className="absolute inset-0 bg-gradient-to-tr from-primary-900/10 via-transparent to-transparent pointer-events-none" />
+          {children}
+        </div>
       </main>
     </div>
   );

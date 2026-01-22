@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button, Input, Card } from '../components/UIComponents';
 import { AlertCircle } from 'lucide-react';
+import LiquidEther from '../components/LiquidEther';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -50,11 +51,30 @@ export const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] relative overflow-hidden">
-      {/* Background decoration */}
+      {/* Animated LiquidEther Background */}
+      <LiquidEther
+        colors={['#ef4444', '#dc2626', '#991b1b']}
+        mouseForce={20}
+        cursorSize={100}
+        isViscous
+        viscous={30}
+        iterationsViscous={32}
+        iterationsPoisson={32}
+        resolution={0.5}
+        isBounce={false}
+        autoDemo
+        autoSpeed={0.5}
+        autoIntensity={2.2}
+        takeoverDuration={0.25}
+        autoResumeDelay={3000}
+        autoRampDuration={0.6}
+      />
+
+      {/* Background decoration - on top of LiquidEther */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary-900/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[120px]" />
 
-      <Card className="w-full max-w-md relative z-10 border border-gray-800/50">
+      <Card className="w-full max-w-md relative z-10 border border-gray-800/50 backdrop-blur-xl bg-black/60">
         <div className="text-center mb-8">
           <div className="h-12 w-12 bg-gradient-to-tr from-primary-500 to-primary-700 rounded-xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-primary-500/30">
             R
@@ -123,7 +143,7 @@ export const Login = () => {
               <div className="w-full border-t border-gray-800"></div>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#0f0f0f] px-2 text-gray-500">Or continue with</span>
+              <span className="bg-black/60 px-2 text-gray-500">Or continue with</span>
             </div>
           </div>
 

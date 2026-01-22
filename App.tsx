@@ -8,9 +8,20 @@ import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import { useStore } from './store';
 
-// Protected Route Component
+// Protected Route Component - waits for auth to be checked before redirecting
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const user = useStore((state) => state.user);
+  const authInitialized = useStore((state) => state.authInitialized);
+  
+  // If auth hasn't been checked yet, show loading
+  if (!authInitialized) {
+    return (
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
+      </div>
+    );
+  }
+  
   if (!user) {
     return <Navigate to="/login" replace />;
   }

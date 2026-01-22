@@ -10,6 +10,7 @@ interface AppState {
   currentResume: Resume | null;
   atsAnalysis: ATSAnalysis | null;
   isLoading: boolean;
+  authInitialized: boolean;
   error: string | null;
   
   // Auth actions
@@ -54,6 +55,7 @@ export const useStore = create<AppState>((set, get) => ({
   currentResume: null,
   atsAnalysis: null,
   isLoading: false,
+  authInitialized: false,
   error: null,
 
   setUser: (user) => set({ user }),
@@ -363,7 +365,7 @@ export const useStore = create<AppState>((set, get) => ({
 
 // Initialize auth state listener
 authService.onAuthStateChange((user) => {
-  useStore.getState().setUser(user);
+  useStore.setState({ user, authInitialized: true });
   if (user) {
     useStore.getState().fetchResumes();
   }
