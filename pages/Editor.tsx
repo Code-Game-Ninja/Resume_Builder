@@ -1001,7 +1001,7 @@ export const Editor = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-[#0a0a0a] overflow-hidden">
+    <div className="flex h-full bg-[#0a0a0a] overflow-hidden">
       <ATSModal isOpen={showATS} onClose={() => setShowATS(false)} />
       <AIOnboardingModal 
         isOpen={showOnboarding} 
