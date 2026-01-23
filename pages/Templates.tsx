@@ -190,6 +190,91 @@ const MiniTemplatePreview = ({ templateId, color }: { templateId: string, color:
                 sidebarTitle: { color: 'rgba(255,255,255,0.8)' },
                 mainTitle: { color: color.hex }
             }
+        },
+        pikachu: {
+            container: "bg-white text-gray-900 ring-2 ring-inset p-2",
+            header: "text-center mb-2 pb-2 border-b-2 border-dashed",
+            name: "text-[10px] font-black uppercase tracking-wide",
+            headline: "text-[5px] font-bold",
+            sectionTitle: "text-[5px] font-bold inline-block px-1 rounded mb-1",
+            layout: "single",
+            dynamic: {
+                container: { ringColor: color.hex },
+                name: { color: color.hex },
+                headline: { color: `${color.hex}99` },
+                headerBorder: { borderColor: color.hex },
+                sectionTitle: { backgroundColor: `${color.hex}30`, color: color.hex }
+            }
+        },
+        mewtwo: {
+            container: "bg-white flex h-full",
+            sidebar: "w-[35%] bg-zinc-900 text-white p-2",
+            main: "flex-1 p-2",
+            name: "text-[9px] font-bold tracking-widest uppercase",
+            headline: "text-[5px] text-purple-200",
+            sectionTitle: "text-[5px] font-bold uppercase mb-1 tracking-wider",
+            layout: "two-left",
+            dynamic: {
+                name: { color: 'white' },
+                sidebarTitle: { color: color.hex },
+                mainTitle: { color: color.hex, borderBottom: `1px solid ${color.hex}` }
+            }
+        },
+        eevee: {
+            container: "bg-[#fffaf5] text-[#4a3b32] p-3 text-center",
+            header: "mb-2 pb-2 border-b border-[#e7dacb]",
+            name: "text-[10px] font-bold",
+            headline: "text-[5px] italic text-[#8c7b70]",
+            sectionTitle: "text-[5px] font-bold uppercase mb-1 text-center",
+            layout: "single",
+            dynamic: {
+                name: { color: color.hex },
+                sectionTitle: { color: color.hex }
+            }
+        },
+        charizard: {
+            container: "bg-white flex h-full",
+            sidebar: "w-[30%] p-2 order-2 text-white bg-gradient-to-b from-red-600 to-orange-600",
+            main: "flex-1 p-2 order-1",
+            name: "text-[10px] font-black italic",
+            headline: "text-[5px] font-bold",
+            sectionTitle: "text-[5px] font-black uppercase mb-1",
+            layout: "two-right",
+            dynamic: {
+                sidebar: { background: `linear-gradient(to bottom, ${color.hex}, ${color.hex}dd)` },
+                name: { color: color.hex },
+                headline: { color: 'gray' },
+                mainTitle: { color: color.hex, borderBottom: `2px solid ${color.hex}` },
+                sidebarTitle: { color: 'white' }
+            }
+        },
+        squirtle: {
+            container: "bg-white p-2 border-t-8",
+            header: "mb-2",
+            name: "text-[10px] font-bold",
+            headline: "text-[5px] text-blue-500",
+            sectionTitle: "text-[5px] font-bold uppercase mb-1 border-b pb-0.5",
+            layout: "single",
+            dynamic: {
+                container: { borderColor: color.hex },
+                headline: { color: color.hex },
+                sectionTitle: { color: color.hex, borderColor: `${color.hex}40` }
+            }
+        },
+        bulbasaur: {
+            container: "bg-white flex h-full",
+            sidebar: "w-[30%] bg-emerald-50 p-2",
+            main: "flex-1 p-2",
+            name: "text-[9px] font-bold text-emerald-900",
+            headline: "text-[5px] text-emerald-600",
+            sectionTitle: "text-[5px] font-bold mb-1",
+            layout: "two-left",
+            dynamic: {
+                sidebar: { backgroundColor: `${color.hex}15` },
+                headline: { color: color.hex },
+                sidebarTitle: { color: color.hex },
+                mainTitle: { color: color.hex }
+            }
         }
     };
 

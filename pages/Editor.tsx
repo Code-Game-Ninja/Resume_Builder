@@ -38,11 +38,12 @@ const SectionItem: React.FC<{ title: string; subtitle?: string; dates?: string; 
 );
 
 // --- Editor Form Components ---
-const BasicsEditor = ({ data, onChange, onPhotoUpload, uploadingPhoto }: { 
+const BasicsEditor = ({ data, onChange, onPhotoUpload, uploadingPhoto, showPhoto = true }: { 
     data: any, 
     onChange: (e: any) => void,
     onPhotoUpload: (file: File) => Promise<void>,
-    uploadingPhoto: boolean 
+    uploadingPhoto: boolean,
+    showPhoto?: boolean
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     
@@ -63,30 +64,34 @@ const BasicsEditor = ({ data, onChange, onPhotoUpload, uploadingPhoto }: {
     return (
         <div className="space-y-4 animate-slide-up">
             <div className="flex gap-4">
-                <div 
-                    className="h-24 w-24 rounded-full bg-gray-800 border-2 border-dashed border-gray-700 flex items-center justify-center shrink-0 cursor-pointer hover:border-primary-500 transition-colors overflow-hidden relative group"
-                    onClick={handlePhotoClick}
-                >
-                    {data.photo ? (
-                        <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
-                    ) : (
-                        <User className="text-gray-500" />
-                    )}
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        {uploadingPhoto ? (
-                            <Loader2 size={20} className="text-white animate-spin" />
-                        ) : (
-                            <Camera size={20} className="text-white" />
-                        )}
-                    </div>
-                </div>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                />
+                {showPhoto && (
+                    <>
+                        <div 
+                            className="h-24 w-24 rounded-full bg-gray-800 border-2 border-dashed border-gray-700 flex items-center justify-center shrink-0 cursor-pointer hover:border-primary-500 transition-colors overflow-hidden relative group"
+                            onClick={handlePhotoClick}
+                        >
+                            {data.photo ? (
+                                <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <User className="text-gray-500" />
+                            )}
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                {uploadingPhoto ? (
+                                    <Loader2 size={20} className="text-white animate-spin" />
+                                ) : (
+                                    <Camera size={20} className="text-white" />
+                                )}
+                            </div>
+                        </div>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                        />
+                    </>
+                )}
                 <div className="flex-1 space-y-4">
                     <Input label="Full Name" name="name" value={data.name} onChange={onChange} />
                     <Input label="Headline" name="headline" value={data.headline} onChange={onChange} />
@@ -358,6 +363,69 @@ const DocumentPreview = ({
             headline: "text-sm text-white/80 mb-6",
             sectionTitleSidebar: "text-xs font-bold uppercase tracking-widest text-white/90 mb-3 mt-8",
             sectionTitleMain: "text-xl text-[var(--primary)] mb-4 font-light border-b border-[var(--primary)]/20 pb-2 uppercase tracking-wide",
+            layout: "two-left"
+        },
+        // PIKACHU: Friendly, energetic, yellow accents
+        pikachu: {
+            container: "font-sans bg-[#fffbea] text-gray-800",
+            header: "p-8 pb-4 border-b-4 border-[var(--primary)]",
+            name: "text-4xl font-extrabold text-[var(--primary)] tracking-tight",
+            headline: "text-lg font-medium text-gray-600 mt-1",
+            sectionTitle: "text-lg font-bold text-gray-900 mb-4 border-l-4 border-[var(--primary)] pl-3",
+            contactRow: "flex flex-wrap gap-4 mt-4 text-sm font-medium text-gray-500",
+            layout: "single"
+        },
+        // MEWTWO: Futuristic, minimal, purple
+        mewtwo: {
+            container: "font-sans bg-white text-gray-900",
+            header: "text-center pt-10 pb-6",
+            name: "text-5xl font-thin tracking-[0.1em] text-[var(--primary)] uppercase",
+            headline: "text-sm tracking-[0.2em] text-gray-400 mt-2 uppercase",
+            sectionTitle: "text-center text-sm font-bold uppercase tracking-widest text-gray-900 mb-6 mt-8 relative after:content-[''] after:block after:w-8 after:h-0.5 after:bg-[var(--primary)] after:mx-auto after:mt-2",
+            contactRow: "flex justify-center gap-6 mt-6 text-xs tracking-widest text-gray-400 uppercase",
+            layout: "single"
+        },
+        // EEVEE: Adaptable, natural, soft
+        eevee: {
+            container: "font-serif bg-[#fdfdfd] text-gray-800 flex h-full",
+            sidebar: "w-[30%] bg-[#f5f5f0] p-8 h-full pt-12 border-r border-[#e0e0e0]",
+            main: "flex-1 p-10 pt-12",
+            name: "text-3xl font-bold text-[#5d5a56] mb-1 font-sans",
+            headline: "text-base italic text-[var(--primary)] mb-6",
+            sectionTitleSidebar: "text-sm font-bold uppercase text-[#8a8580] mb-4 mt-8",
+            sectionTitleMain: "text-xl font-medium text-[#5d5a56] mb-4 border-b border-[#e0e0e0] pb-2 font-sans",
+            layout: "two-left"
+        },
+        // CHARIZARD: Bold, executive, strong
+        charizard: {
+            container: "font-sans bg-white text-black",
+            header: "bg-gray-900 text-white p-10 mb-8 border-b-4 border-[var(--primary)]",
+            name: "text-5xl font-black uppercase tracking-tighter",
+            headline: "text-xl font-light text-[var(--primary)] mt-2",
+            sectionTitle: "text-2xl font-black uppercase text-gray-900 mb-4 border-b-2 border-black pb-1",
+            contactRow: "flex flex-wrap gap-6 mt-6 text-sm text-gray-400",
+            layout: "single"
+        },
+        // SQUIRTLE: Cool, structured, blue
+        squirtle: {
+            container: "font-sans bg-white text-slate-800 flex h-full",
+            sidebar: "w-[26%] bg-[var(--primary)] text-white p-6 h-full order-2",
+            main: "flex-1 p-8 pt-10 order-1",
+            name: "text-3xl font-bold text-slate-900",
+            headline: "text-lg text-slate-500 font-medium mb-8",
+            sectionTitleSidebar: "text-xs font-bold uppercase tracking-wider text-white/50 mb-3 mt-8 border-b border-white/20 pb-1",
+            sectionTitleMain: "text-xl font-bold text-[var(--primary)] mb-4 uppercase tracking-tight flex items-center gap-2 after:content-[''] after:flex-1 after:h-px after:bg-slate-200",
+            layout: "two-right"
+        },
+        // BULBASAUR: Organic, fresh, green
+        bulbasaur: {
+            container: "font-sans bg-[#faffe6] text-green-900 flex h-full",
+            sidebar: "w-[33%] bg-[#e6fffa] p-8 h-full border-r border-green-100/50 pt-10",
+            main: "flex-1 p-8 pt-10",
+            name: "text-3xl font-bold text-[var(--primary)] mb-1",
+            headline: "text-base text-green-700/80 mb-6 font-medium",
+            sectionTitleSidebar: "text-sm font-bold uppercase text-teal-700 mb-3 mt-6 bg-teal-100/50 inline-block px-2 py-1 rounded",
+            sectionTitleMain: "text-xl font-bold text-[var(--primary)] mb-4 border-b-2 border-[var(--primary)]/20 pb-2 inline-block pr-8",
             layout: "two-left"
         }
     };
@@ -763,7 +831,7 @@ export const Editor = () => {
   const { 
       currentResume, setCurrentResume, updateCurrentResumeData, updateCurrentResumeMetadata, updateSectionOrder, saveCurrentResume, 
       setLoading, publishTemplate, runATSAnalysis, generateSummaryWithAI, generateExperienceWithAI,
-      suggestSkillsWithAI, isLoading, user, atsAnalysis
+      suggestSkillsWithAI, isLoading, user, atsAnalysis, templates
   } = useStore();
   const [activeSection, setActiveSection] = useState<SectionType>('basics');
   const [zoom, setZoom] = useState(0.8);
@@ -968,7 +1036,15 @@ export const Editor = () => {
         </div>
         
         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-            {activeSection === 'basics' && <BasicsEditor data={currentResume.data.basics} onChange={handleBasicChange} onPhotoUpload={handlePhotoUpload} uploadingPhoto={uploadingPhoto} />}
+            {activeSection === 'basics' && (
+                <BasicsEditor 
+                    data={currentResume.data.basics} 
+                    onChange={handleBasicChange} 
+                    onPhotoUpload={handlePhotoUpload} 
+                    uploadingPhoto={uploadingPhoto} 
+                    showPhoto={templates.find(t => t.id === currentResume.metadata.template)?.config.hasPhoto ?? true}
+                />
+            )}
             {activeSection === 'summary' && (
                  <div className="space-y-4 animate-slide-up">
                     <p className="text-sm text-gray-400 mb-2">Write a short professional summary to highlight your key achievements.</p>
