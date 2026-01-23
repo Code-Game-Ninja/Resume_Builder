@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { resumeService } from '../services/firebase';
 import { Button } from '../components/UIComponents';
-import { Plus, Eye, MoreVertical, Search, Clock, Trash2, Copy, Sparkles, LayoutTemplate, FileText, ArrowRight, Globe } from 'lucide-react';
+import { Plus, Eye, MoreVertical, Search, Clock, Trash2, Copy, Sparkles, LayoutTemplate, FileText, ArrowRight, Globe, UploadCloud } from 'lucide-react';
+import { ImportResumeModal } from '../components/ImportResumeModal';
 import { formatDistanceToNow } from 'date-fns';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import gsap from 'gsap';
@@ -108,6 +110,12 @@ const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete, onDup
                             <Eye size={16} /> Open Editor
                         </DropdownMenu.Item>
                         <DropdownMenu.Item 
+                            className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-purple-300 hover:bg-purple-500/20 hover:text-purple-200 rounded-lg cursor-pointer outline-none transition-colors"
+                            onClick={() => onEdit(resume.id + '?ats=true')}
+                        >
+                            <Sparkles size={16} /> Improve with AI
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item 
                             className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-gray-300 hover:bg-white/10 hover:text-white rounded-lg cursor-pointer outline-none transition-colors"
                             onClick={() => onDuplicate(resume.id)}
                         >
@@ -145,6 +153,7 @@ export const Dashboard = () => {
   const { resumes, fetchResumes, createResume, deleteResume, duplicateResume, publishTemplate, user } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [greeting, setGreeting] = useState('');
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     fetchResumes();
@@ -159,6 +168,30 @@ export const Dashboard = () => {
   const handleCreateNew = async () => {
     const id = await createResume('Untitled Resume');
     navigate(`/editor/${id}`);
+  };
+
+  const handleImport = async (file: File) => {
+     // Create a new resume with the filename
+     const name = file.name.replace(/\.[^/.]+$/, "");
+     const id = await createResume(name);
+     
+     try {
+         // Use real PDF parsing with AI extraction
+         const { importResumeFromPDF } = await import('../services/pdfParser');
+         const extractedData = await importResumeFromPDF(file);
+         
+         // Update the resume with extracted data
+         await resumeService.updateResume(id, {
+             data: extractedData, 
+             metadata: { template: 'onyx', colors: { primary: '#2563eb', text: '#000000', background: '#ffffff' } }
+         } as any);
+     } catch (e) {
+         console.error('PDF parsing failed:', e);
+         // If parsing fails, just create empty resume
+     }
+
+     // Navigate to editor
+     navigate(`/editor/${id}`);
   };
   
   const filteredResumes = resumes.filter(r => 
@@ -193,19 +226,41 @@ export const Dashboard = () => {
             </div>
         </BentoCard>
 
-        {/* 2. Quick Action Tile */}
-        <BentoCard className="relative p-8 flex flex-col justify-center items-center text-center cursor-pointer group bg-gradient-to-br from-primary-900/40 to-[#1a1a1a] hover:from-primary-900/60" delay={0.2}>
-            <div onClick={handleCreateNew} className="absolute inset-0 z-10" />
-            <div className="w-20 h-20 rounded-2xl bg-primary-500 text-white flex items-center justify-center mb-6 shadow-xl shadow-primary-500/30 group-hover:scale-110 transition-transform duration-300">
-                <Plus size={40} />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Create New</h2>
-            <p className="text-sm text-gray-400">Start from scratch or pick a template</p>
-            <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-                <ArrowRight className="text-white" />
-            </div>
-        </BentoCard>
+        {/* 2. Action Tiles */}
+        <div className="flex flex-col gap-4">
+             {/* Create New */}
+            <BentoCard className="flex-1 relative p-6 flex items-center gap-4 cursor-pointer group bg-gradient-to-r from-primary-900/40 to-[#1a1a1a] hover:from-primary-900/60" delay={0.2}>
+                <div onClick={handleCreateNew} className="absolute inset-0 z-10" />
+                <div className="w-12 h-12 rounded-xl bg-primary-500 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Plus size={24} />
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-white">Create New</h2>
+                    <p className="text-xs text-gray-400">Start from scratch</p>
+                </div>
+                <ArrowRight className="ml-auto text-gray-500 group-hover:text-white transition-colors" />
+            </BentoCard>
+
+             {/* Upload */}
+            <BentoCard className="flex-1 relative p-6 flex items-center gap-4 cursor-pointer group bg-[#1a1a1a] hover:bg-[#222] border-dashed border-2 border-gray-800 hover:border-gray-600" delay={0.3}>
+                <div onClick={() => setShowImport(true)} className="absolute inset-0 z-10" />
+                <div className="w-12 h-12 rounded-xl bg-gray-800 text-gray-300 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <UploadCloud size={24} />
+                </div>
+                 <div>
+                    <h2 className="text-xl font-bold text-white">Upload Resume</h2>
+                    <p className="text-xs text-gray-400">Enhance PDF/Docx</p>
+                </div>
+                <ArrowRight className="ml-auto text-gray-500 group-hover:text-white transition-colors" />
+            </BentoCard>
+        </div>
       </div>
+      
+      <ImportResumeModal 
+        isOpen={showImport} 
+        onClose={() => setShowImport(false)} 
+        onImport={handleImport}
+      />
 
       {/* --- Main Content Section --- */}
       <div className="flex flex-col md:flex-row items-end justify-between gap-6 mb-8 px-2">

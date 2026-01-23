@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store';
 import { resumeService, storageService } from '../services/firebase';
 import { Button, Input } from '../components/UIComponents';
 import { ATSModal } from '../components/ATSModal';
+import { AIOnboardingModal, AIParams } from '../components/AIOnboardingModal';
 import { Reorder, useDragControls } from 'framer-motion';
 import { 
   ArrowLeft, Save, Download, Share2, 
@@ -223,12 +224,16 @@ const DocumentPreview = ({
     data, 
     template, 
     layout, 
+    colors,
+    font,
     onReorder,
     compactMode = false
 }: { 
     data: Resume['data'], 
     template: string,
     layout?: { main: SectionType[], sidebar: SectionType[] },
+    colors: { primary: string, text: string, background: string },
+    font?: string,
     onReorder: (main: SectionType[], sidebar: SectionType[]) => void,
     compactMode?: boolean
 }) => {
@@ -251,34 +256,33 @@ const DocumentPreview = ({
 
     // --- Styles Definitions ---
     const styles = {
-        // ... (Same styles as before - keeping brief for tool call, assuming standard styles exist)
         // ONYX: Minimal, standard, highly readable
         onyx: {
             container: "font-sans bg-white text-gray-900",
-            header: "border-b-2 border-gray-900 pb-6 mb-6",
-            name: "text-4xl font-bold uppercase tracking-tight",
+            header: "border-b-2 border-[var(--primary)] pb-6 mb-6",
+            name: "text-4xl font-bold uppercase tracking-tight text-[var(--primary)]",
             headline: "text-xl text-gray-600 mt-1 font-light",
-            sectionTitle: "text-xs font-bold uppercase tracking-widest border-b border-gray-200 pb-1 mb-4 text-gray-500",
+            sectionTitle: "text-xs font-bold uppercase tracking-widest border-b border-gray-200 pb-1 mb-4 text-[var(--primary)] opacity-80",
             contactRow: "flex flex-wrap gap-4 mt-4 text-sm text-gray-600",
             layout: "single"
         },
         // AZURILL: Two column, left sidebar blue
         azurill: {
             container: "font-sans bg-white flex h-full",
-            sidebar: "w-[32%] bg-slate-100 p-8 h-full border-r border-slate-200 text-slate-700 pt-12",
+            sidebar: "w-[32%] bg-slate-50 p-8 h-full border-r border-slate-200 text-slate-700 pt-12",
             main: "flex-1 p-8 pt-12 text-slate-800",
             name: "text-3xl font-bold text-slate-900 leading-tight mb-2",
-            headline: "text-lg text-blue-600 font-medium mb-6",
-            sectionTitleSidebar: "text-sm font-bold uppercase tracking-wider text-slate-900 mb-3 mt-8 border-b-2 border-blue-200 pb-1",
-            sectionTitleMain: "text-xl font-bold text-slate-900 mb-4 flex items-center gap-2",
+            headline: "text-lg text-[var(--primary)] font-medium mb-6",
+            sectionTitleSidebar: "text-sm font-bold uppercase tracking-wider text-slate-900 mb-3 mt-8 border-b-2 border-[var(--primary)] pb-1",
+            sectionTitleMain: "text-xl font-bold text-[var(--primary)] mb-4 flex items-center gap-2",
             layout: "two-left"
         },
         // BRONZOR: Serif, classic, warm background
         bronzor: {
             container: "font-serif bg-[#fdfbf7] text-[#2c2420]",
-            header: "text-center border-b border-double border-[#8c7b75] pb-6 mb-8",
+            header: "text-center border-b border-double border-[var(--primary)] pb-6 mb-8",
             name: "text-4xl font-serif font-bold text-[#4a3b32]",
-            headline: "text-lg italic text-[#8c7b75] mt-2",
+            headline: "text-lg italic text-[var(--primary)] mt-2",
             sectionTitle: "text-center text-lg font-bold uppercase tracking-widest text-[#4a3b32] mb-6 border-b border-[#e5e0d8] pb-2",
             contactRow: "flex justify-center gap-6 mt-4 text-sm text-[#5d4d44]",
             layout: "single"
@@ -286,12 +290,12 @@ const DocumentPreview = ({
         // GENGAR: Modern, dark sidebar, high contrast
         gengar: {
             container: "font-sans bg-white flex h-full",
-            sidebar: "w-[35%] bg-[#1e1b4b] text-white p-8 h-full pt-16",
+            sidebar: "w-[35%] bg-[var(--primary)] text-white p-8 h-full pt-16",
             main: "flex-1 p-10 pt-16 text-gray-800",
             name: "text-3xl font-bold text-white mb-2",
-            headline: "text-purple-200 text-lg mb-8",
-            sectionTitleSidebar: "text-sm font-bold uppercase tracking-wider text-purple-200 mb-4 mt-8 border-b border-purple-800 pb-1",
-            sectionTitleMain: "text-2xl font-bold text-[#1e1b4b] mb-6 border-l-4 border-[#1e1b4b] pl-3 uppercase tracking-tight",
+            headline: "text-white/80 text-lg mb-8",
+            sectionTitleSidebar: "text-sm font-bold uppercase tracking-wider text-white/90 mb-4 mt-8 border-b border-white/20 pb-1",
+            sectionTitleMain: "text-2xl font-bold text-[var(--primary)] mb-6 border-l-4 border-[var(--primary)] pl-3 uppercase tracking-tight",
             layout: "two-left"
         },
         // GLALIE: Technical, mono-styled, code-like
@@ -299,40 +303,40 @@ const DocumentPreview = ({
             container: "font-mono text-sm bg-white text-gray-800",
             header: "mb-8 p-6 bg-gray-50 border-b border-gray-200",
             name: "text-2xl font-bold text-black",
-            headline: "text-gray-500",
-            sectionTitle: "text-sm font-bold bg-gray-100 p-1 pl-2 mb-4 border-l-4 border-gray-400",
+            headline: "text-[var(--primary)] font-medium",
+            sectionTitle: "text-sm font-bold bg-gray-100 p-1 pl-2 mb-4 border-l-4 border-[var(--primary)]",
             contactRow: "grid grid-cols-2 gap-2 mt-4 text-xs",
             layout: "single"
         },
         // KAKUNA: Robust, thick borders, yellow/orange accents
         kakuna: {
-            container: "font-sans bg-white text-gray-900 border-l-[12px] border-yellow-500",
+            container: "font-sans bg-white text-gray-900 border-l-[12px] border-[var(--primary)]",
             header: "pl-8 pt-8 pb-8 mb-4 border-b border-gray-100",
             name: "text-5xl font-extrabold tracking-tighter text-gray-900",
-            headline: "text-xl font-medium text-yellow-600 mt-2",
-            sectionTitle: "text-xl font-bold text-gray-900 mb-4 mt-6 inline-block bg-yellow-100 px-3 py-1 -rotate-1",
+            headline: "text-xl font-medium text-[var(--primary)] mt-2",
+            sectionTitle: "text-xl font-bold text-gray-900 mb-4 mt-6 inline-block bg-[var(--primary-light)] px-3 py-1 -rotate-1", // Will need --primary-light
             contactRow: "flex flex-col gap-1 mt-4 text-sm font-medium text-gray-500",
             layout: "single"
         },
         // CHIKORITA: Two col right, fresh green
         chikorita: {
             container: "font-sans bg-white flex h-full",
-            sidebar: "w-[30%] bg-emerald-50 p-6 h-full border-l border-emerald-100 text-emerald-900 pt-10 order-2",
+            sidebar: "w-[30%] bg-[var(--primary-light)] p-6 h-full border-l border-[var(--primary)]/20 text-gray-900 pt-10 order-2",
             main: "flex-1 p-8 pt-10 text-gray-800 order-1",
-            name: "text-3xl font-bold text-emerald-800",
-            headline: "text-lg text-emerald-600 mb-6",
-            sectionTitleSidebar: "text-xs font-bold uppercase text-emerald-700 mb-3 mt-6",
-            sectionTitleMain: "text-lg font-bold text-emerald-900 mb-4 border-b border-emerald-100 pb-2",
+            name: "text-3xl font-bold text-[var(--primary)]",
+            headline: "text-lg text-[var(--primary)] opacity-80 mb-6",
+            sectionTitleSidebar: "text-xs font-bold uppercase text-[var(--primary)] mb-3 mt-6",
+            sectionTitleMain: "text-lg font-bold text-gray-900 mb-4 border-b border-[var(--primary)]/30 pb-2",
             layout: "two-right"
         },
         // DITTO: Bold, grid-like, boxy
         ditto: {
             container: "font-sans bg-white text-black",
-            header: "bg-black text-white p-8 mb-8",
+            header: "bg-[var(--primary)] text-white p-8 mb-8",
             name: "text-4xl font-bold",
-            headline: "text-gray-300 text-lg",
-            sectionTitle: "text-xl font-black uppercase mb-4 border-b-4 border-black inline-block",
-            contactRow: "flex flex-wrap gap-6 mt-4 text-sm text-gray-400",
+            headline: "text-white/80 text-lg",
+            sectionTitle: "text-xl font-black uppercase mb-4 border-b-4 border-[var(--primary)] inline-block",
+            contactRow: "flex flex-wrap gap-6 mt-4 text-sm text-white/70",
             layout: "single"
         },
         // LAPRAS: Elegant, centered, blue serif
@@ -340,20 +344,20 @@ const DocumentPreview = ({
             container: "font-serif bg-white text-slate-800",
             header: "text-center pb-8 mb-8",
             name: "text-4xl text-slate-900 tracking-wide",
-            headline: "text-lg text-blue-800 italic mt-2",
-            sectionTitle: "text-center text-sm font-bold uppercase tracking-[0.2em] text-blue-900 mb-6 mt-8",
+            headline: "text-lg text-[var(--primary)] italic mt-2",
+            sectionTitle: "text-center text-sm font-bold uppercase tracking-[0.2em] text-[var(--primary)] mb-6 mt-8",
             contactRow: "flex justify-center gap-4 mt-6 text-sm text-slate-500 font-sans",
             layout: "single"
         },
         // LEAFISH: Organic, left sidebar green
         leafish: {
             container: "font-sans bg-white flex h-full",
-            sidebar: "w-[28%] bg-green-900 text-green-50 p-6 h-full pt-10",
+            sidebar: "w-[28%] bg-[var(--primary)] text-white p-6 h-full pt-10",
             main: "flex-1 p-8 pt-10 text-gray-800",
-            name: "text-2xl font-bold text-green-100 mb-1",
-            headline: "text-sm text-green-300 mb-6",
-            sectionTitleSidebar: "text-xs font-bold uppercase tracking-widest text-green-400 mb-3 mt-8",
-            sectionTitleMain: "text-xl text-green-800 mb-4 font-light border-b border-green-100 pb-2 uppercase tracking-wide",
+            name: "text-2xl font-bold text-white mb-1",
+            headline: "text-sm text-white/80 mb-6",
+            sectionTitleSidebar: "text-xs font-bold uppercase tracking-widest text-white/90 mb-3 mt-8",
+            sectionTitleMain: "text-xl text-[var(--primary)] mb-4 font-light border-b border-[var(--primary)]/20 pb-2 uppercase tracking-wide",
             layout: "two-left"
         }
     };
@@ -410,11 +414,11 @@ const DocumentPreview = ({
                 <span key={skill.id} className={cn(
                     "text-sm",
                     template === 'glalie' ? "font-mono" : "",
-                    template === 'kakuna' ? "bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200" : "",
-                    template === 'gengar' ? "text-purple-100 bg-white/10 px-2 py-1 rounded" : "",
-                    template === 'leafish' ? "text-green-50" : "",
+                    template === 'kakuna' ? "bg-[var(--primary-light)] px-2 py-0.5 rounded border border-[var(--primary)] text-gray-900" : "",
+                    template === 'gengar' ? "text-white/90 bg-white/10 px-2 py-1 rounded" : "",
+                    template === 'leafish' ? "text-white/90 bg-white/10 px-2 py-1 rounded" : "",
                     !['kakuna', 'gengar', 'leafish'].includes(template) && "bg-gray-100 px-2 py-1 rounded text-gray-700"
-                )}>
+                )} style={!['kakuna', 'gengar', 'leafish'].includes(template) ? { color: 'var(--text)', backgroundColor: 'color-mix(in srgb, var(--primary), white 90%)' } : {}}>
                     {skill.name} {skill.level > 3 && '★'}
                 </span>
             ))}
@@ -585,7 +589,7 @@ const DocumentPreview = ({
         const sections = activeMain.length > 0 ? activeMain : defaultLayout.main;
         
         return (
-            <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] p-[15mm] shadow-2xl origin-top", t.container)}>
+            <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] p-[15mm] shadow-2xl origin-top", t.container)} style={{ '--primary': colors.primary, '--text': colors.text, '--background': colors.background, '--primary-light': 'color-mix(in srgb, var(--primary), white 90%)', fontFamily: font || 'inherit' } as React.CSSProperties}>
                 <div className={t.header}>
                     <div className="flex items-center gap-6">
                         {data.basics.photo && (
@@ -626,7 +630,7 @@ const DocumentPreview = ({
         const mainSections = activeMain.length > 0 ? activeMain : twoColumnLeftDefault.main;
 
         return (
-            <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] shadow-2xl origin-top", t.container)}>
+            <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] shadow-2xl origin-top", t.container)} style={{ '--primary': colors.primary, '--text': colors.text, '--background': colors.background, '--primary-light': 'color-mix(in srgb, var(--primary), white 90%)' } as React.CSSProperties}>
                 {/* Sidebar */}
                 <div className={t.sidebar}>
                     {(template === 'gengar' || template === 'leafish') && (
@@ -702,7 +706,7 @@ const DocumentPreview = ({
         const mainSections = activeMain.length > 0 ? activeMain : twoColumnRightDefault.main;
 
          return (
-            <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] shadow-2xl origin-top", t.container)}>
+            <div id="resume-preview" className={cn("w-[210mm] min-h-[297mm] shadow-2xl origin-top", t.container)} style={{ '--primary': colors.primary, '--text': colors.text, '--background': colors.background, '--primary-light': 'color-mix(in srgb, var(--primary), white 90%)' } as React.CSSProperties}>
                 {/* Main Content (Left) */}
                 <div className={t.main}>
                      <div className="mb-8">
@@ -759,7 +763,7 @@ export const Editor = () => {
   const { 
       currentResume, setCurrentResume, updateCurrentResumeData, updateCurrentResumeMetadata, updateSectionOrder, saveCurrentResume, 
       setLoading, publishTemplate, runATSAnalysis, generateSummaryWithAI, generateExperienceWithAI,
-      suggestSkillsWithAI, isLoading, user
+      suggestSkillsWithAI, isLoading, user, atsAnalysis
   } = useStore();
   const [activeSection, setActiveSection] = useState<SectionType>('basics');
   const [zoom, setZoom] = useState(0.8);
@@ -768,6 +772,24 @@ export const Editor = () => {
   const [generatingAI, setGeneratingAI] = useState(false);
   const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('onboarding') === 'true') {
+        setShowOnboarding(true);
+    } else if (params.get('ats') === 'true') {
+        setShowATS(true);
+    }
+  }, [location]);
+
+  // Auto-run ATS Analysis when modal opens via param/import
+  useEffect(() => {
+    if (showATS && currentResume && !atsAnalysis) {
+        runATSAnalysis();
+    }
+  }, [showATS, currentResume]);
 
   useEffect(() => {
     const loadResume = async () => {
@@ -797,6 +819,42 @@ export const Editor = () => {
       const skills = await suggestSkillsWithAI();
       setSuggestedSkills(skills);
       setGeneratingAI(false);
+  };
+
+  const handleFullAIGenerate = async (params: AIParams) => {
+      if (!currentResume) return;
+
+      // 1. Update Headline
+      updateCurrentResumeData('basics', { ...currentResume.data.basics, headline: params.jobTitle, summary: `Experienced ${params.jobTitle} with a proven track record...` }); // Temporary placeholder before AI
+      
+      // 2. Generate Summary
+      await generateSummaryWithAI();
+
+      // 3. Generate Skills
+      const skills = await suggestSkillsWithAI();
+      const newSkills = skills.slice(0, 8).map(name => ({ id: Date.now().toString() + Math.random(), name, level: 3 }));
+      updateCurrentResumeData('skills', newSkills);
+
+      // 4. Add Dummy Experience to Generate Content
+      const expId = Date.now().toString();
+      const dummyExp: ExperienceItem = {
+          id: expId,
+          position: params.jobTitle,
+          company: 'Example Company',
+          startDate: '2022',
+          endDate: 'Present',
+          location: 'Remote',
+          description: '',
+          visible: true
+      };
+      
+      const currentExp = currentResume.data.experience || [];
+      updateCurrentResumeData('experience', [dummyExp, ...currentExp]);
+      
+      // Generate description for this experience
+      // Note: We need to wait for state update in a real app, but here we might need to directly call API or use store method if available. 
+      // Since generateExperienceWithAI uses activeItem logic in previous implementation, we might need to improve store or just add the item for now.
+      // For this MVP, we'll leave the experience added. User can click "AI Generate" on it.
   };
 
   const handlePublish = async () => {
@@ -877,6 +935,11 @@ export const Editor = () => {
   return (
     <div className="flex h-screen bg-[#0a0a0a] overflow-hidden">
       <ATSModal isOpen={showATS} onClose={() => setShowATS(false)} />
+      <AIOnboardingModal 
+        isOpen={showOnboarding} 
+        onClose={() => setShowOnboarding(false)} 
+        onGenerate={handleFullAIGenerate}
+      />
       
       {/* 1. Editor Sidebar */}
       <div className="w-20 border-r border-gray-800 flex flex-col items-center py-6 gap-6 bg-[#0f0f0f] z-20">
@@ -1143,9 +1206,11 @@ export const Editor = () => {
                 </div>
             )}
             {activeSection === 'design' && (
-                <div className="space-y-6 animate-slide-up">
-                    <p className="text-sm text-gray-400">Choose a template style. Your content will be preserved.</p>
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-8 animate-slide-up">
+                    {/* 1. Template Selection */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium text-gray-300">Layout Template</h3>
+                        <div className="grid grid-cols-2 gap-3">
                         {[
                             { id: 'onyx', name: 'Onyx', color: 'bg-white' },
                             { id: 'azurill', name: 'Azurill', color: 'bg-slate-100' },
@@ -1162,18 +1227,76 @@ export const Editor = () => {
                                 key={template.id}
                                 onClick={() => updateCurrentResumeMetadata({ template: template.id })}
                                 className={cn(
-                                    "cursor-pointer rounded-xl border-2 p-3 transition-all flex flex-col items-center gap-2 hover:scale-105",
+                                    "cursor-pointer rounded-lg border p-2 transition-all flex items-center gap-2 hover:bg-white/5",
                                     currentResume.metadata.template === template.id 
-                                        ? "border-primary-500 bg-primary-500/10 shadow-lg shadow-primary-500/20" 
-                                        : "border-gray-800 bg-white/5 hover:border-gray-600"
+                                        ? "border-primary-500 bg-primary-500/10" 
+                                        : "border-gray-800"
                                 )}
                             >
-                                <div className={cn("w-full aspect-[3/4] rounded-lg shadow-inner", template.color)} />
+                                <div className={cn("w-4 h-4 rounded-full border border-white/20", template.color)} />
                                 <span className={cn("text-xs font-medium capitalize", currentResume.metadata.template === template.id ? "text-primary-400" : "text-gray-400")}>
                                     {template.name}
                                 </span>
                             </div>
                         ))}
+                        </div>
+                    </div>
+
+                    {/* 2. Color Scheme */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-sm font-medium text-gray-300">Accent Color</h3>
+                            <input 
+                                type="color" 
+                                value={currentResume.metadata.colors.primary}
+                                onChange={(e) => updateCurrentResumeMetadata({ colors: { ...currentResume.metadata.colors, primary: e.target.value } })}
+                                className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                            />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {['#1a1a1a', '#2563eb', '#7c3aed', '#0d9488', '#dc2626', '#ea580c', '#059669', '#db2777'].map(color => (
+                                <button
+                                    key={color}
+                                    onClick={() => updateCurrentResumeMetadata({ colors: { ...currentResume.metadata.colors, primary: color } })}
+                                    className={cn(
+                                        "w-8 h-8 rounded-full border-2 transition-all",
+                                        currentResume.metadata.colors.primary === color ? "border-white scale-110 shadow-lg" : "border-transparent opacity-50 hover:opacity-100"
+                                    )}
+                                    style={{ backgroundColor: color }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 3. Typography */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium text-gray-300">Typography</h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {[
+                                { name: 'Inter', family: '"Inter", sans-serif' },
+                                { name: 'Roboto', family: '"Roboto", sans-serif' },
+                                { name: 'Open Sans', family: '"Open Sans", sans-serif' },
+                                { name: 'Merriweather', family: '"Merriweather", serif' },
+                                { name: 'Playfair Display', family: '"Playfair Display", serif' },
+                                { name: 'Lato', family: '"Lato", sans-serif' },
+                                { name: 'Fira Code', family: '"Fira Code", monospace' }
+                            ].map(font => (
+                                <button
+                                    key={font.name}
+                                    onClick={() => updateCurrentResumeMetadata({ font: font.family })}
+                                    className={cn(
+                                        "flex justify-between items-center px-4 py-3 rounded-lg border transition-all text-sm",
+                                        currentResume.metadata.font === font.family 
+                                            ? "border-primary-500 bg-primary-500/10 text-primary-400" 
+                                            : "border-gray-800 bg-white/5 text-gray-400 hover:border-gray-600"
+                                    )}
+                                    style={{ fontFamily: font.family }}
+                                >
+                                    <span>{font.name}</span>
+                                    {currentResume.metadata.font === font.family && <CheckCircle size={14} />}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1220,6 +1343,8 @@ export const Editor = () => {
                     data={currentResume.data} 
                     template={currentResume.metadata.template} 
                     layout={currentResume.metadata.layout}
+                    colors={currentResume.metadata.colors}
+                    font={currentResume.metadata.font}
                     onReorder={updateSectionOrder}
                     compactMode={currentResume.metadata.compactMode}
                  />

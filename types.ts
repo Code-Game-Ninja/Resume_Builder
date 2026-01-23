@@ -88,6 +88,7 @@ export interface ResumeMetadata {
     text: string;
     background: string;
   };
+  font?: string;
   layout?: {
       main: SectionType[];
       sidebar: SectionType[];
@@ -118,7 +119,9 @@ export interface Template {
   config: {
       layout: 'single-column' | 'two-column-left' | 'two-column-right';
       style: 'modern' | 'classic' | 'minimal' | 'bold';
-  }
+      hasPhoto?: boolean;
+  };
+  previewData?: Partial<ResumeData>; // For community templates - fake data for preview
 }
 
 export interface ATSAnalysis {
@@ -128,6 +131,40 @@ export interface ATSAnalysis {
     missingKeywords: string[];
     issues: { severity: 'high' | 'medium' | 'low', message: string }[];
     summary: string;
+}
+
+// Advanced ATS Analysis (AI-Powered)
+export interface AdvancedATSAnalysis {
+    ats_score: number;
+    score_breakdown: {
+        keywords: number;
+        skills: number;
+        experience: number;
+        job_title: number;
+        formatting: number;
+        sections: number;
+    };
+    job_match_score: number;
+    missing_keywords: {
+        high_priority: string[];
+        medium_priority: string[];
+        low_priority: string[];
+    };
+    bullet_improvements: {
+        original: string;
+        improved: string;
+    }[];
+    ats_comparator: {
+        workday_style: { score: number; risk: string; notes: string };
+        greenhouse_style: { score: number; risk: string; notes: string };
+        lever_style: { score: number; risk: string; notes: string };
+    };
+    top_improvements: string[];
+    final_verdict: {
+        screening_outcome: 'Yes' | 'Borderline' | 'No';
+        required_score: number;
+        biggest_blocker: string;
+    };
 }
 
 export type SectionType = 'basics' | 'summary' | 'experience' | 'education' | 'skills' | 'design' | 'certificates' | 'activities' | 'languages' | 'projects';

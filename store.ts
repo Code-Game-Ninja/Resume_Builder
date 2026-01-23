@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Resume, User, Template, ATSAnalysis, SectionType } from './types';
+import { Resume, User, Template, ATSAnalysis, AdvancedATSAnalysis, SectionType } from './types';
 import { authService, resumeService, templateService, atsService, storageService } from './services/firebase';
 import { aiService } from './services/ai';
 
@@ -9,6 +9,8 @@ interface AppState {
   templates: Template[];
   currentResume: Resume | null;
   atsAnalysis: ATSAnalysis | null;
+  advancedAtsAnalysis: AdvancedATSAnalysis | null;
+  jobDescription: string;
   isLoading: boolean;
   authInitialized: boolean;
   error: string | null;
@@ -28,12 +30,15 @@ interface AppState {
   setCurrentResume: (resume: Resume | null) => void;
   fetchResumes: () => Promise<void>;
   fetchTemplates: () => Promise<void>;
-  createResume: (name: string, templateId?: string) => Promise<string>;
+  createResume: (name: string, templateId?: string, initialColor?: string) => Promise<string>;
   deleteResume: (id: string) => Promise<void>;
   duplicateResume: (id: string) => Promise<void>;
   saveCurrentResume: () => Promise<void>;
   publishTemplate: (resumeId: string) => Promise<void>;
   runATSAnalysis: () => Promise<void>;
+  runAdvancedATSAnalysis: (jobDesc?: string) => Promise<void>;
+  setJobDescription: (desc: string) => void;
+  optimizeResumeWithAI: () => Promise<void>;
   
   // State Updaters
   updateCurrentResumeData: (section: keyof Resume['data'], data: any) => void;
@@ -55,13 +60,16 @@ export const useStore = create<AppState>((set, get) => ({
   templates: [],
   currentResume: null,
   atsAnalysis: null,
+  advancedAtsAnalysis: null,
+  jobDescription: '',
   isLoading: false,
   authInitialized: false,
   error: null,
 
   setUser: (user) => set({ user }),
   setResumes: (resumes) => set({ resumes }),
-  setCurrentResume: (resume) => set({ currentResume: resume, atsAnalysis: null }),
+  setCurrentResume: (resume) => set({ currentResume: resume, atsAnalysis: null, advancedAtsAnalysis: null }),
+  setJobDescription: (desc) => set({ jobDescription: desc }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
@@ -177,13 +185,13 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  createResume: async (name, templateId) => {
+  createResume: async (name, templateId, initialColor) => {
     const { user } = get();
     if (!user) throw new Error('Not authenticated');
     
     set({ isLoading: true });
     try {
-      const newResume = await resumeService.createResume(user.id, name, templateId);
+      const newResume = await resumeService.createResume(user.id, name, templateId, initialColor);
       set((state) => ({ 
         resumes: [newResume, ...state.resumes], 
         isLoading: false 
@@ -249,6 +257,47 @@ export const useStore = create<AppState>((set, get) => ({
       const result = atsService.analyzeResume(currentResume);
       set({ atsAnalysis: result });
     } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  runAdvancedATSAnalysis: async (jobDesc) => {
+    const { currentResume, jobDescription } = get();
+    if (!currentResume) return;
+    
+    set({ isLoading: true, advancedAtsAnalysis: null });
+    try {
+      const result = await aiService.analyzeATSAdvanced(currentResume.data, jobDesc || jobDescription);
+      set({ advancedAtsAnalysis: result });
+    } catch (e) {
+      console.error('Advanced ATS analysis failed:', e);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  optimizeResumeWithAI: async () => {
+    const { currentResume } = get();
+    if (!currentResume) return;
+    
+    set({ isLoading: true });
+    try {
+      const optimizedData = await aiService.generateOptimizedResume(
+        currentResume.data,
+        currentResume.data.basics.headline
+      );
+      
+      set((state) => ({
+        currentResume: state.currentResume ? {
+          ...state.currentResume,
+          data: optimizedData,
+          updatedAt: new Date()
+        } : null,
+        advancedAtsAnalysis: null, // Clear analysis so user can re-run
+        isLoading: false
+      }));
+    } catch (e) {
+      console.error('AI optimization failed:', e);
       set({ isLoading: false });
     }
   },

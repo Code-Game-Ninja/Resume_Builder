@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ResumeData, ExperienceItem, EducationItem } from '../types';
+import { ResumeData, ExperienceItem, EducationItem, AdvancedATSAnalysis } from '../types';
 
 // Initialize Gemini AI with API key from environment
 const API_KEY = (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
@@ -298,6 +298,266 @@ Return ONLY valid JSON.`;
     if (!jsonMatch) throw new Error('Invalid AI response format');
     
     return JSON.parse(jsonMatch[0]);
+  },
+
+  /**
+   * Advanced ATS Analysis - AI-Powered comprehensive resume analysis
+   */
+  async analyzeATSAdvanced(resumeData: ResumeData, jobDescription?: string): Promise<AdvancedATSAnalysis> {
+    const model = getModel();
+    
+    const resumeText = `
+Name: ${resumeData.basics.name}
+Headline: ${resumeData.basics.headline}
+Email: ${resumeData.basics.email}
+Phone: ${resumeData.basics.phone}
+Location: ${resumeData.basics.location}
+Summary: ${resumeData.basics.summary}
+
+EXPERIENCE:
+${resumeData.experience.map(e => `${e.position} at ${e.company} (${e.startDate} - ${e.endDate})
+${e.description}`).join('\n\n')}
+
+EDUCATION:
+${resumeData.education?.map(e => `${e.degree} in ${e.field} from ${e.school} (${e.endDate})`).join('\n') || 'Not specified'}
+
+SKILLS:
+${resumeData.skills.map(s => s.name).join(', ')}
+
+CERTIFICATES:
+${resumeData.certificates?.map(c => c.name).join(', ') || 'None listed'}
+
+PROJECTS:
+${resumeData.projects?.map(p => `${p.name}: ${p.description}`).join('\n') || 'None listed'}
+`.trim();
+
+    const resumeJson = JSON.stringify(resumeData, null, 2);
+
+    const prompt = `You are an advanced ATS (Applicant Tracking System) analysis engine used by recruiters.
+
+Your task is to:
+1. Analyze resumes exactly like a real ATS would
+2. Compare resumes against a given job description
+3. Simulate how different popular ATS systems would score the resume
+4. Explain scoring decisions clearly and professionally
+5. Provide actionable, ATS-safe improvements
+
+You must follow real-world ATS constraints:
+- ATS systems do NOT understand graphics, tables, icons, columns, or visual styling
+- ATS systems prioritize keyword relevance, section clarity, chronology, and role alignment
+- Do NOT inflate scores unrealistically
+- Be strict, objective, and recruiter-oriented
+
+IMPORTANT RULES:
+- All scores must be labeled as "Estimated / Simulated"
+- Do NOT hallucinate skills or experience
+- Base all analysis only on provided resume content and job description
+
+RESUME (RAW TEXT):
+${resumeText}
+
+RESUME (PARSED STRUCTURE):
+${resumeJson}
+
+JOB DESCRIPTION:
+${jobDescription || 'General professional role - analyze for broad ATS compatibility'}
+
+TASKS:
+
+1️⃣ ATS COMPATIBILITY ANALYSIS
+Evaluate the resume for ATS compatibility using these weighted factors:
+- Keyword match (30%)
+- Skills relevance (15%)
+- Experience relevance (20%)
+- Job title alignment (10%)
+- Formatting & structure (15%)
+- Section clarity & chronology (10%)
+
+2️⃣ RESUME VS JOB DESCRIPTION MATCHING
+Identify:
+- Missing critical skills
+- Weak or generic bullet points
+- Overused or irrelevant skills
+- Role responsibility mismatches
+
+3️⃣ ATS SYSTEM COMPARATOR (SIMULATED)
+Simulate how different ATS-style systems would evaluate this resume:
+- Workday-style ATS
+- Greenhouse-style ATS
+- Lever-style ATS
+
+4️⃣ ACTIONABLE IMPROVEMENTS
+Provide:
+- Top 5 changes that would improve ATS score fastest
+- Bullet point improvement suggestions (show original and improved versions)
+
+5️⃣ FINAL VERDICT
+Answer:
+- Is this resume likely to pass initial ATS screening? (Yes/Borderline/No)
+- What score is realistically needed for shortlisting?
+- What is the single biggest weakness blocking selection?
+
+OUTPUT FORMAT (STRICT JSON ONLY - NO MARKDOWN, NO EXPLANATION):
+{
+  "ats_score": number,
+  "score_breakdown": {
+    "keywords": number,
+    "skills": number,
+    "experience": number,
+    "job_title": number,
+    "formatting": number,
+    "sections": number
+  },
+  "job_match_score": number,
+  "missing_keywords": {
+    "high_priority": ["array of strings"],
+    "medium_priority": ["array of strings"],
+    "low_priority": ["array of strings"]
+  },
+  "bullet_improvements": [
+    {
+      "original": "string",
+      "improved": "string"
+    }
+  ],
+  "ats_comparator": {
+    "workday_style": {
+      "score": number,
+      "risk": "string",
+      "notes": "string"
+    },
+    "greenhouse_style": {
+      "score": number,
+      "risk": "string",
+      "notes": "string"
+    },
+    "lever_style": {
+      "score": number,
+      "risk": "string",
+      "notes": "string"
+    }
+  },
+  "top_improvements": ["array of 5 strings"],
+  "final_verdict": {
+    "screening_outcome": "Yes" | "Borderline" | "No",
+    "required_score": number,
+    "biggest_blocker": "string"
+  }
+}
+
+Return ONLY valid JSON. No markdown code blocks, no explanations.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Extract JSON from response (handle potential markdown code blocks)
+    let jsonText = text.trim();
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+    }
+    
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('AI Response:', text);
+      throw new Error('Invalid AI response format');
+    }
+    
+    return JSON.parse(jsonMatch[0]) as AdvancedATSAnalysis;
+  },
+
+  /**
+   * Generate an ATS-optimized version of the resume using AI
+   * Takes existing resume data and improves it for better ATS scoring
+   */
+  async generateOptimizedResume(currentData: ResumeData, targetRole?: string): Promise<ResumeData> {
+    const model = getModel();
+    
+    const prompt = `You are an expert resume writer specializing in ATS optimization. 
+Take this resume data and create an IMPROVED, ATS-OPTIMIZED version.
+
+CURRENT RESUME DATA:
+${JSON.stringify(currentData, null, 2)}
+
+TARGET ROLE: ${targetRole || currentData.basics.headline || 'Professional'}
+
+YOUR TASK:
+1. Rewrite the summary to be more impactful and keyword-rich (3-4 sentences)
+2. Improve ALL experience bullet points with:
+   - Strong action verbs
+   - Quantifiable achievements (add realistic metrics)
+   - ATS-friendly keywords
+   - STAR method format
+3. Ensure skills are listed with relevant, searchable terms
+4. Keep all original facts but enhance the language and impact
+
+CRITICAL RULES:
+- Keep the same person's name, email, phone, basic facts
+- Keep all original companies, job titles, schools - just improve descriptions
+- Add realistic metrics where they weren't present (e.g., "Improved efficiency by X%")
+- Make ALL content ATS-scannable
+- Use industry-standard keywords
+
+Return the COMPLETE improved resume in this exact JSON format:
+{
+  "basics": {
+    "name": "keep same",
+    "headline": "improved professional title",
+    "email": "keep same",
+    "phone": "keep same",
+    "location": "keep same",
+    "website": "keep same",
+    "summary": "improved 3-4 sentence summary"
+  },
+  "experience": [
+    {
+      "id": "keep same",
+      "company": "keep same",
+      "position": "keep same",
+      "location": "keep same", 
+      "startDate": "keep same",
+      "endDate": "keep same",
+      "description": "IMPROVED bullet points with metrics and action verbs",
+      "visible": true
+    }
+  ],
+  "education": [...keep same structure, improve descriptions...],
+  "skills": [...optimize skill names for ATS...],
+  "certificates": [...keep same...],
+  "projects": [...improve descriptions...],
+  "languages": [...keep same...],
+  "activities": [...keep same...]
+}
+
+Return ONLY valid JSON, no markdown.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let jsonText = response.text().trim();
+    
+    // Clean up markdown code blocks if present
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+    }
+    
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Invalid AI response format');
+    }
+    
+    const improved = JSON.parse(jsonMatch[0]);
+    
+    // Merge with original to ensure all fields exist
+    return {
+      basics: { ...currentData.basics, ...improved.basics },
+      experience: improved.experience || currentData.experience,
+      education: improved.education || currentData.education,
+      skills: improved.skills || currentData.skills,
+      certificates: improved.certificates || currentData.certificates || [],
+      projects: improved.projects || currentData.projects || [],
+      languages: improved.languages || currentData.languages || [],
+      activities: improved.activities || currentData.activities || []
+    };
   },
 
   /**
